@@ -1,5 +1,17 @@
+# Sistem Dosyaları
 __pycache__/
 *.pyc
 *.log
+
+# Geçici Medya
+*.png
+*.jpg
+
+# Sanal Ortam
 venv/
 env/
+
+# (İsteğe Bağlı) Eğer tokenleri gizlemek isterseniz başındaki # işaretini kaldırın:
+# telegram_config.py
+
+yedek_cop/
