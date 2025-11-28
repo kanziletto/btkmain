@@ -1,12 +1,5 @@
-# Sadece gereksiz sistem dosyaları kalsın
 __pycache__/
 *.pyc
 *.log
-
-# Resimler kalabalık yapmasın (İsterseniz bunu da silebilirsiniz)
-*.png
-*.jpg
-
-# Sanal Ortam
 venv/
 env/
