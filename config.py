@@ -3,16 +3,22 @@ import os
 import random
 
 # Tokenleriniz
-BOT_TOKEN = "8280880523:AAEu2wBiuix0PUNxHKIHuGmEPcArBENBTWo"
-ADMIN_ID = 123456789
+BOT_TOKEN = "8280880523:AAHa1jdL_JKZa1YqLr063Qp6VGOLFU2W7QQ"
 
-# --- TEK VE NET SEÇİM ---
+# YENİ: Admin ve Log Kanalı Bilgileri
+ADMIN_ID = 7107697888
+ADMIN_CHANNEL_ID = -1003498419781
+
+# --- OCR AYARLARI ---
+OCR_API_URL = "http://10.0.0.87:8000/ocr" 
+
+# --- CAPTCHA SEÇİMİ ---
 CAPTCHA_PROVIDERS = ['remote_api'] 
 
 # Selenium
 HEADLESS_MODE = True
 
-# Proxy Listeniz (Aynen kalsın)
+# Proxy Listeniz
 PROXY_LIST = [
     "212.135.181.42:6224", "195.40.186.107:5789", "195.40.186.41:5723",
     "108.165.227.66:5307", "108.165.227.77:5318", "23.26.231.88:7329",

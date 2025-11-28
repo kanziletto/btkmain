@@ -1,53 +1,284 @@
-import json
+import sqlite3
+import datetime
 import os
-from typing import List, Dict
-from config import DB_FILE
+from dateutil.parser import parse
+from config import ADMIN_ID
+
+DB_FILE_SQL = "bot_data.db"
 
 class Database:
     def __init__(self):
-        self.file_path = DB_FILE
-        self._ensure_file()
+        self.db_path = DB_FILE_SQL
+        self._init_db()
 
-    def _ensure_file(self):
-        if not os.path.exists(self.file_path):
-            with open(self.file_path, 'w', encoding='utf-8') as f:
-                json.dump({}, f)
+    def _get_conn(self):
+        # check_same_thread=False: Farklı threadlerden (tarama threadleri) erişim için gerekli
+        return sqlite3.connect(self.db_path, check_same_thread=False)
 
-    def _load(self) -> Dict:
-        try:
-            with open(self.file_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except:
-            return {}
-
-    def _save(self, data: Dict):
-        with open(self.file_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
-
-    def ekle_domain(self, chat_id: str, domain: str) -> bool:
-        data = self._load()
-        chat_id = str(chat_id)
-        if chat_id not in data:
-            data[chat_id] = []
+    def _init_db(self):
+        """Tabloları oluşturur"""
+        conn = self._get_conn()
+        c = conn.cursor()
         
-        if domain not in data[chat_id]:
-            data[chat_id].append(domain)
-            self._save(data)
+        # 1. Kullanıcılar Tablosu
+        c.execute('''CREATE TABLE IF NOT EXISTS users (
+                     user_id TEXT PRIMARY KEY,
+                     plan TEXT,
+                     start_date TEXT,
+                     expiry_date TEXT,
+                     notified_expiry INTEGER DEFAULT 0
+                     )''')
+        
+        # 2. Domainler Tablosu (Kullanıcıya bağlı)
+        c.execute('''CREATE TABLE IF NOT EXISTS domains (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     user_id TEXT,
+                     domain TEXT,
+                     UNIQUE(user_id, domain)
+                     )''')
+        
+        # 3. Domain Durumları (Son kontrol saati ve durumu)
+        c.execute('''CREATE TABLE IF NOT EXISTS status (
+                     domain TEXT PRIMARY KEY,
+                     status TEXT,
+                     last_check TEXT
+                     )''')
+        
+        # 4. İstatistikler
+        c.execute('''CREATE TABLE IF NOT EXISTS stats (
+                     date TEXT PRIMARY KEY,
+                     total INTEGER DEFAULT 0,
+                     clean INTEGER DEFAULT 0,
+                     banned INTEGER DEFAULT 0,
+                     error INTEGER DEFAULT 0
+                     )''')
+        
+        # 5. Ayarlar
+        c.execute('''CREATE TABLE IF NOT EXISTS settings (
+                     key TEXT PRIMARY KEY,
+                     value INTEGER
+                     )''')
+
+        # Varsayılan Admin Kaydı
+        c.execute("SELECT * FROM users WHERE user_id=?", (str(ADMIN_ID),))
+        if not c.fetchone():
+            now = str(datetime.datetime.now())
+            expiry = "2099-12-31 23:59:59"
+            c.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)", 
+                      (str(ADMIN_ID), "admin", now, expiry, 0))
+
+        # Varsayılan Ayarlar
+        defaults = [("silent_mode", 1), ("auto_switch", 1), ("system_active", 1)]
+        for key, val in defaults:
+            c.execute("INSERT OR IGNORE INTO settings VALUES (?, ?)", (key, val))
+
+        conn.commit()
+        conn.close()
+
+    # --- KULLANICI İŞLEMLERİ ---
+    def register_user(self, user_id: str):
+        conn = self._get_conn()
+        c = conn.cursor()
+        user_id = str(user_id)
+        
+        c.execute("SELECT * FROM users WHERE user_id=?", (user_id,))
+        if c.fetchone():
+            conn.close()
+            return False # Zaten var
+        
+        now = datetime.datetime.now()
+        expiry = now + datetime.timedelta(days=2) # 48 Saat
+        
+        c.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)", 
+                  (user_id, "trial", str(now), str(expiry), 0))
+        conn.commit()
+        conn.close()
+        return True
+
+    def check_user_access(self, user_id: str) -> dict:
+        user_id = str(user_id)
+        if user_id == str(ADMIN_ID):
+            return {"access": True, "plan": "admin", "msg": "Admin"}
+
+        conn = self._get_conn()
+        c = conn.cursor()
+        c.execute("SELECT plan, expiry_date FROM users WHERE user_id=?", (user_id,))
+        row = c.fetchone()
+        conn.close()
+
+        if not row:
+            return {"access": False, "plan": "none", "msg": "Kayıt bulunamadı. /start yazın."}
+
+        plan, expiry_str = row
+        try:
+            expiry = parse(expiry_str)
+            if datetime.datetime.now() > expiry:
+                return {"access": False, "plan": "expired", "msg": "⏳ Süreniz doldu."}
+        except:
+            return {"access": False, "plan": "error", "msg": "Tarih hatası."}
+
+        return {"access": True, "plan": plan, "msg": "Aktif"}
+
+    def get_user_data(self, user_id):
+        conn = self._get_conn()
+        c = conn.cursor()
+        c.execute("SELECT * FROM users WHERE user_id=?", (str(user_id),))
+        row = c.fetchone()
+        conn.close()
+        if row:
+            return {"plan": row[1], "expiry_date": row[3]}
+        return {}
+
+    def get_expired_users_to_notify(self):
+        conn = self._get_conn()
+        c = conn.cursor()
+        now = str(datetime.datetime.now())
+        # Süresi bitmiş (expiry < now) VE bildirim gitmemiş (notified=0) VE admin olmayanlar
+        c.execute("SELECT user_id FROM users WHERE expiry_date < ? AND notified_expiry = 0 AND plan != 'admin'", (now,))
+        rows = c.fetchall()
+        conn.close()
+        return [r[0] for r in rows]
+
+    def mark_user_notified(self, user_id: str):
+        conn = self._get_conn()
+        c = conn.cursor()
+        c.execute("UPDATE users SET notified_expiry = 1 WHERE user_id=?", (str(user_id),))
+        conn.commit()
+        conn.close()
+
+    def set_premium(self, user_id: str, days: int):
+        conn = self._get_conn()
+        c = conn.cursor()
+        now = datetime.datetime.now()
+        expiry = now + datetime.timedelta(days=days)
+        
+        # Varsa güncelle, yoksa ekle (UPSERT mantığı)
+        c.execute("""INSERT OR REPLACE INTO users (user_id, plan, start_date, expiry_date, notified_expiry) 
+                     VALUES (?, ?, ?, ?, ?)""", 
+                  (str(user_id), "premium", str(now), str(expiry), 0))
+        
+        conn.commit()
+        conn.close()
+        return str(expiry)
+
+    # --- AYARLAR ---
+    def get_setting(self, key):
+        conn = self._get_conn()
+        c = conn.cursor()
+        c.execute("SELECT value FROM settings WHERE key=?", (key,))
+        row = c.fetchone()
+        conn.close()
+        return bool(row[0]) if row else True
+
+    def toggle_setting(self, key):
+        current = self.get_setting(key)
+        new_val = 0 if current else 1
+        conn = self._get_conn()
+        c = conn.cursor()
+        c.execute("UPDATE settings SET value=? WHERE key=?", (new_val, key))
+        conn.commit()
+        conn.close()
+        return bool(new_val)
+
+    # --- İSTATİSTİK ---
+    def update_stats(self, durum):
+        conn = self._get_conn()
+        c = conn.cursor()
+        today = str(datetime.date.today())
+        
+        # Gün kaydı var mı?
+        c.execute("SELECT * FROM stats WHERE date=?", (today,))
+        if not c.fetchone():
+            c.execute("INSERT INTO stats (date) VALUES (?)", (today,))
+        
+        # Genel toplamı artır
+        c.execute("UPDATE stats SET total = total + 1 WHERE date=?", (today,))
+        
+        # Duruma göre artır
+        col = "clean" if durum == "TEMİZ" else "banned" if durum == "ENGELLİ" else "error" if durum == "HATA" else None
+        if col:
+            c.execute(f"UPDATE stats SET {col} = {col} + 1 WHERE date=?", (today,))
+            
+        conn.commit()
+        conn.close()
+
+    def get_stats(self):
+        conn = self._get_conn()
+        c = conn.cursor()
+        today = str(datetime.date.today())
+        c.execute("SELECT total, clean, banned, error FROM stats WHERE date=?", (today,))
+        row = c.fetchone()
+        conn.close()
+        
+        if row:
+            return {"date": today, "total": row[0], "TEMIZ": row[1], "ENGELLİ": row[2], "HATA": row[3]}
+        return {"date": today, "total": 0, "TEMIZ": 0, "ENGELLİ": 0, "HATA": 0}
+
+    # --- DOMAIN YÖNETİMİ ---
+    def get_domain_status(self, domain):
+        conn = self._get_conn()
+        c = conn.cursor()
+        c.execute("SELECT status FROM status WHERE domain=?", (domain,))
+        row = c.fetchone()
+        conn.close()
+        return row[0] if row else "YENI"
+
+    def get_domain_info(self, domain):
+        conn = self._get_conn()
+        c = conn.cursor()
+        c.execute("SELECT status, last_check FROM status WHERE domain=?", (domain,))
+        row = c.fetchone()
+        conn.close()
+        if row: return row[0], row[1]
+        return "YENI", "--:--:--"
+
+    def update_domain_status(self, domain, status):
+        conn = self._get_conn()
+        c = conn.cursor()
+        now = datetime.datetime.now().strftime("%H:%M:%S")
+        c.execute("INSERT OR REPLACE INTO status (domain, status, last_check) VALUES (?, ?, ?)", (domain, status, now))
+        conn.commit()
+        conn.close()
+
+    def ekle_domain(self, chat_id, domain):
+        conn = self._get_conn()
+        c = conn.cursor()
+        try:
+            c.execute("INSERT INTO domains (user_id, domain) VALUES (?, ?)", (str(chat_id), domain))
+            conn.commit()
             return True
-        return False
+        except sqlite3.IntegrityError:
+            return False # Zaten var
+        finally:
+            conn.close()
 
-    def sil_domain(self, chat_id: str, domain: str) -> bool:
-        data = self._load()
-        chat_id = str(chat_id)
-        if chat_id in data and domain in data[chat_id]:
-            data[chat_id].remove(domain)
-            self._save(data)
-            return True
-        return False
+    def sil_domain(self, chat_id, domain):
+        conn = self._get_conn()
+        c = conn.cursor()
+        c.execute("DELETE FROM domains WHERE user_id=? AND domain=?", (str(chat_id), domain))
+        rows = c.rowcount
+        conn.commit()
+        conn.close()
+        return rows > 0
 
-    def get_all_users_domains(self) -> Dict[str, List[str]]:
-        return self._load()
+    def get_user_domains(self, chat_id):
+        conn = self._get_conn()
+        c = conn.cursor()
+        c.execute("SELECT domain FROM domains WHERE user_id=?", (str(chat_id),))
+        rows = c.fetchall()
+        conn.close()
+        return [r[0] for r in rows]
 
-    def get_user_domains(self, chat_id: str) -> List[str]:
-        data = self._load()
-        return data.get(str(chat_id), [])
+    def get_all_users_domains(self):
+        conn = self._get_conn()
+        c = conn.cursor()
+        c.execute("SELECT user_id, domain FROM domains")
+        rows = c.fetchall()
+        conn.close()
+        
+        # Eski formata uygun döndür: {user_id: [dom1, dom2]}
+        result = {}
+        for uid, dom in rows:
+            if uid not in result: result[uid] = []
+            result[uid].append(dom)
+        return result

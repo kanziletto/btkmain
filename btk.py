@@ -15,23 +15,12 @@ class BTKScanner:
         self.captcha_mgr = CaptchaManager(CAPTCHA_PROVIDERS)
 
     def preprocess_image(self, image_path: str) -> str:
-        """
-        SADECE BÜYÜTME:
-        Ağır işlem yok. Resmi 2 kat büyütüp API'ye yollar.
-        """
         try:
             img = Image.open(image_path)
-            
-            # Kenar temizliği (Çerçeveyi at)
             w, h = img.size
             img = img.crop((2, 2, w - 2, h - 2))
-            
-            # Büyütme (Upscale x2)
             img = img.resize((w * 2, h * 2), Image.Resampling.LANCZOS)
-            
-            # Çerçeve Ekle
             img = ImageOps.expand(img, border=20, fill='white')
-
             base, ext = os.path.splitext(image_path)
             processed_path = f"{base}_proc{ext}"
             img.save(processed_path)
@@ -39,15 +28,14 @@ class BTKScanner:
         except:
             return image_path
 
-    def sorgula(self, domain: str) -> SorguSonucu:
-        # (Standart sorgu fonksiyonu)
+    def _tek_sorgu(self, domain: str) -> SorguSonucu:
+        """Tek bir tarama işlemini gerçekleştirir."""
         driver = None
         start_time = time.time()
         img_path = f"temp_captcha_{domain}.png"
         screenshots = [] 
         
         try:
-            logger.info(f"🚀 {domain} için DEBUG testi başlıyor...")
             driver = get_driver()
             driver.get(self.base_url)
             wait = WebDriverWait(driver, 30)
@@ -57,46 +45,48 @@ class BTKScanner:
             captcha_img = wait.until(EC.visibility_of_element_located((By.ID, "security_code_image")))
             btn_sorgula = driver.find_element(By.ID, "submit1")
 
-            s1 = f"debug1_orj_{domain}.png"
-            driver.save_screenshot(s1)
-            screenshots.append(s1)
-
             captcha_img.screenshot(img_path)
-            
-            # İŞLEME
             final_captcha_path = self.preprocess_image(img_path)
-            screenshots.append(final_captcha_path)
-
-            # ÇÖZME (Remote API)
             captcha_code, provider = self.captcha_mgr.solve(final_captcha_path)
             
-            logger.info(f"🧩 Captcha: {captcha_code} ({provider})")
-
             input_domain.clear()
             input_domain.send_keys(domain)
             input_captcha.clear()
             input_captcha.send_keys(captcha_code)
             
-            s2 = f"debug2_yazilan_{domain}.png"
-            driver.save_screenshot(s2)
-            screenshots.append(s2)
-
             time.sleep(0.5)
             btn_sorgula.click()
             time.sleep(3.0) 
             
-            s3 = f"debug3_sonuc_{domain}.png"
-            driver.save_screenshot(s3)
-            screenshots.append(s3)
-
             page_source = driver.page_source.lower()
             durum = "BİLİNMİYOR"
             detay = "Analiz edilemedi"
 
             if "yanlış girdiniz" in page_source or "hatalı" in page_source:
                 durum = "HATA"
+                detay = "Captcha veya Veri Hatası"
             elif "engellenmiştir" in page_source:
                 durum = "ENGELLİ"
+                # --- KOORDİNATLARA GÖRE KIRPMA ---
+                try:
+                    full_path = f"full_temp_{domain}.png"
+                    driver.save_screenshot(full_path)
+                    with Image.open(full_path) as img:
+                        # Koordinatlar: (Sol, Üst, Sağ, Alt)
+                        crop_area = (472, 0, 1433, 597)
+                        cropped_img = img.crop(crop_area)
+                        
+                        s3 = f"kanit_{domain}.png"
+                        cropped_img.save(s3)
+                        screenshots.append(s3)
+                    if os.path.exists(full_path): os.remove(full_path)
+                except Exception as e:
+                     logger.warning(f"Kırpma hatası: {e}")
+                     # Hata olursa tam sayfa al
+                     s3_full = f"full_kanit_{domain}.png"
+                     driver.save_screenshot(s3_full)
+                     screenshots.append(s3_full)
+                # ---------------------------------
             elif "bulunamadı" in page_source:
                 durum = "TEMİZ"
             
@@ -104,7 +94,34 @@ class BTKScanner:
             return SorguSonucu(domain, durum, detay, total_time, captcha_code, screenshot_paths=screenshots)
 
         except Exception as e:
-            logger.error(f"❌ Hata: {str(e)}")
-            return SorguSonucu(domain, "KRİTİK HATA", str(e), 0.0, screenshot_paths=screenshots)
+            return SorguSonucu(domain, "HATA", str(e), 0.0, screenshot_paths=screenshots)
         finally:
             if driver: driver.quit()
+            if os.path.exists(img_path):
+                try: os.remove(img_path) 
+                except: pass
+            if 'final_captcha_path' in locals() and os.path.exists(final_captcha_path):
+                try: os.remove(final_captcha_path)
+                except: pass
+
+    # DÜZELTME: Deneme sayısı 10'a çıkarıldı
+    def sorgula(self, domain: str, max_retries=10) -> SorguSonucu:
+        """
+        Hata durumunda belirtilen sayı kadar tekrar dener.
+        """
+        sonuc = None
+        for attempt in range(1, max_retries + 1):
+            if attempt > 1:
+                logger.info(f"🔄 {domain} tekrar deneniyor ({attempt}/{max_retries})...")
+            
+            sonuc = self._tek_sorgu(domain)
+            
+            # Eğer durum HATA değilse (TEMİZ veya ENGELLİ ise) sonucu hemen döndür
+            if sonuc.durum != "HATA":
+                return sonuc
+            
+            # Hata aldıysak biraz bekle ve tekrar dene
+            time.sleep(2)
+        
+        # Deneme hakkı bitti, son alınan sonucu (HATA) döndür
+        return sonuc
