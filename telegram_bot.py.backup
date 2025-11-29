@@ -4,14 +4,35 @@ import telegram_config as tg_conf
 from database import Database
 import datetime
 
+# --- KURULUM ---
 if not tg_conf.BOT_TOKEN:
     raise ValueError("BOT_TOKEN bulunamadı!")
 
 bot = telebot.TeleBot(tg_conf.BOT_TOKEN)
 db = Database()
 
+# ✅ YENİ: Kalıcı klavye menüsü oluştur
+def create_keyboard_menu():
+    """Sol altta görünecek tuş takımı"""
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    
+    btn_hesap = types.KeyboardButton("👤 Hesabım")
+    btn_liste = types.KeyboardButton("📄 Domainlerim")
+    btn_ekle = types.KeyboardButton("➕ Domain Ekle")
+    btn_sorgu = types.KeyboardButton("🔍 Hızlı Sorgu")
+    btn_sss = types.KeyboardButton("❓ S.S.S")
+    btn_destek = types.KeyboardButton("💬 Destek")
+    
+    keyboard.add(btn_hesap, btn_liste)
+    keyboard.add(btn_ekle, btn_sorgu)
+    keyboard.add(btn_sss, btn_destek)
+    
+    return keyboard
+
+# --- DIŞARIYA AÇILAN FONKSİYONLAR ---
 def start_polling():
     print("--> Telegram Bot Başlatıldı...")
+    # Komutları Telegram'a bildir (Web için)
     bot.set_my_commands(tg_conf.BOT_COMMANDS)
     bot.infinity_polling()
 
@@ -31,6 +52,7 @@ def send_document(chat_id, doc, caption=None):
         bot.send_document(chat_id, doc, caption=caption)
     except: pass
 
+# --- YARDIMCILAR ---
 def check_access(func):
     def wrapper(message, *args, **kwargs):
         if isinstance(message, types.CallbackQuery):
@@ -53,16 +75,20 @@ def check_access(func):
     return wrapper
 
 def get_day_name_tr(weekday):
+    """0=Pazartesi, 6=Pazar"""
     days = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"]
     return days[weekday]
 
+# Domain ekleme durumu takibi
 user_adding_domain = set()
 
+# --- KOMUT HANDLERLARI ---
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     cid = message.chat.id
     name = message.from_user.first_name
     
+    # Kullanıcı daha önce kayıtlı mı?
     conn = db._get_conn()
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE user_id=?", (str(cid),))
@@ -70,10 +96,13 @@ def cmd_start(message):
     conn.close()
     
     if existing:
+        # Eski kullanıcı - ✅ Klavye menüsü ekle
         msg = tg_conf.MESSAGES["welcome_old"].format(name=name)
-        bot.send_message(cid, msg, parse_mode="Markdown")
+        bot.send_message(cid, msg, parse_mode="Markdown", 
+                        reply_markup=create_keyboard_menu())  # ← YENİ
         bot.send_message(cid, "Ana Menü:", reply_markup=tg_conf.create_main_menu())
     else:
+        # Yeni kullanıcı - Trial seçimi sun
         now = datetime.datetime.now()
         is_weekend = now.weekday() >= 5
         day_name = get_day_name_tr(now.weekday())
@@ -86,6 +115,7 @@ def cmd_start(message):
             choice_msg = tg_conf.MESSAGES["trial_choice_weekday"].format(day_name=day_name)
         
         full_msg = welcome_msg + "\n\n" + choice_msg
+        
         bot.send_message(cid, full_msg, parse_mode="Markdown", 
                         reply_markup=tg_conf.create_trial_choice_menu(is_weekend))
 
@@ -185,6 +215,7 @@ def cmd_premium(message):
         send_message(target, f"🎉 Hesabınıza {days} gün Premium tanımlandı!")
     except: bot.reply_to(message, "Hata: /premium_yap ID GÜN")
 
+# --- BUTON HANDLERLARI ---
 @bot.callback_query_handler(func=lambda call: True)
 def handle_callback(call):
     cid = call.message.chat.id
@@ -200,8 +231,9 @@ def handle_callback(call):
                     start_date=start.strftime("%d.%m.%Y %H:%M"),
                     expiry_date=expiry.strftime("%d.%m.%Y %H:%M")
                 )
-                bot.edit_message_text(msg, cid, call.message.message_id, 
-                                     parse_mode="Markdown", reply_markup=tg_conf.create_main_menu())
+                # ✅ Klavye menüsünü de gönder
+                bot.send_message(cid, msg, parse_mode="Markdown", reply_markup=create_keyboard_menu())
+                bot.edit_message_reply_markup(cid, call.message.message_id, reply_markup=tg_conf.create_main_menu())
             else:
                 bot.answer_callback_query(call.id, "Zaten kayıtlısınız!", show_alert=True)
         
@@ -212,8 +244,9 @@ def handle_callback(call):
                     monday_date=start.strftime("%d.%m.%Y"),
                     expiry_date=expiry.strftime("%d.%m.%Y %H:%M")
                 )
-                bot.edit_message_text(msg, cid, call.message.message_id, 
-                                     parse_mode="Markdown", reply_markup=tg_conf.create_main_menu())
+                # ✅ Klavye menüsünü de gönder
+                bot.send_message(cid, msg, parse_mode="Markdown", reply_markup=create_keyboard_menu())
+                bot.edit_message_reply_markup(cid, call.message.message_id, reply_markup=tg_conf.create_main_menu())
             else:
                 bot.answer_callback_query(call.id, "Zaten kayıtlısınız!", show_alert=True)
         
@@ -340,6 +373,29 @@ def handle_callback(call):
     except Exception as e:
         print(f"Callback Hata: {e}")
 
+# ✅ YENİ: Klavye buton handler'ları
+@bot.message_handler(func=lambda message: message.text in [
+    "👤 Hesabım", "📄 Domainlerim", "➕ Domain Ekle", 
+    "🔍 Hızlı Sorgu", "❓ S.S.S", "💬 Destek"
+])
+def handle_keyboard_buttons(message):
+    """Klavye butonlarına basıldığında komutları çalıştır"""
+    text = message.text
+    
+    if text == "👤 Hesabım":
+        cmd_account(message)
+    elif text == "📄 Domainlerim":
+        cmd_list(message)
+    elif text == "➕ Domain Ekle":
+        cmd_add(message)
+    elif text == "🔍 Hızlı Sorgu":
+        cmd_query(message)
+    elif text == "❓ S.S.S":
+        cmd_faq(message)
+    elif text == "💬 Destek":
+        cmd_support(message)
+
+# --- METİN VE DOSYA İŞLEME ---
 @bot.message_handler(content_types=['document'])
 @check_access
 def handle_docs(message):

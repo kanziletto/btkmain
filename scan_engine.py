@@ -3,7 +3,7 @@ import threading
 import queue
 import datetime
 import os
-import sys # Terminal için
+import sys
 from contextlib import contextmanager
 from btk import BTKScanner
 from database import Database
@@ -13,7 +13,6 @@ import telegram_config as tg_conf
 import visuals
 import re
 
-# --- AYARLAR ---
 MAX_SCANS = 2
 scanner_pool = queue.Queue(maxsize=MAX_SCANS)
 db = Database()
@@ -32,12 +31,10 @@ def get_scanner():
     finally:
         scanner_pool.put(s)
 
-# DÜZELTME: Terminale Captcha bilgisini de yazan fonksiyon
 def update_progress(prefix, current, total, domain, status, captcha=""):
     sys.stdout.write(f"\r\033[K[{datetime.datetime.now().strftime('%H:%M:%S')}] {prefix}: {current}/{total} | {domain} -> {status} | Cap: {captcha}")
     sys.stdout.flush()
 
-# --- İŞ MANTIĞI ---
 def increment_domain(domain):
     matches = list(re.finditer(r'\d+', domain))
     if not matches: return None
@@ -56,7 +53,7 @@ def process_scan_result(chat_id, domain, sonuc):
     degisim = (eski != yeni) and (eski != "YENI")
     
     if "HATA" in yeni:
-        tg.send_message(tg_conf.ADMIN_ID, f"⚠️ HATA: {domain} -> {yeni}")
+        tg.send_message(tg_conf.ADMIN_CHANNEL_ID, f"⚠️ HATA: {domain} -> {yeni}")
         return
 
     if yeni == "ENGELLİ" and db.get_setting("auto_switch"):
@@ -84,22 +81,42 @@ def process_scan_result(chat_id, domain, sonuc):
         if not photo_sent:
             tg.send_message(chat_id, text)
 
-# --- START FONKSİYONLARI ---
 def start_manual_scan(chat_id, domains):
     def worker():
         tg.send_message(chat_id, f"🔍 {len(domains)} domain taranıyor...")
         total = len(domains)
+        
+        results = []
+        
         for idx, d in enumerate(domains, 1):
             with get_scanner() as scanner:
                 try:
                     res = scanner.sorgula(d)
                     process_scan_result(chat_id, d, res)
-                    # Terminal Güncelleme
+                    
+                    if res.durum == "HATA":
+                        continue
+                    
+                    status_text = res.durum.lower()
+                    results.append(f"{d} {status_text}")
+                    
                     update_progress("Manuel", idx, total, d, res.durum, res.captcha_text)
-                except: pass
+                except Exception as e:
+                    logger.error(f"Manuel tarama hatası ({d}): {e}")
+                    tg.send_message(tg_conf.ADMIN_CHANNEL_ID, f"⚠️ **Manuel Tarama Hatası**\n👤 Kullanıcı: `{chat_id}`\n🌐 Domain: `{d}`\n❌ Hata: {str(e)}")
+        
         sys.stdout.write("\n")
+        
+        if not results:
+            summary = "✅ **Tarama Tamamlandı!**\n\n"
+            summary += "⚠️ Sonuç alınamadı. Lütfen daha sonra tekrar deneyin."
+        else:
+            summary = "✅ **Tarama Tamamlandı!**\n\n"
+            summary += "\n".join(results)
+        
+        tg.send_message(chat_id, summary)
     
-    threading.Thread(target=worker).start()
+    threading.Thread(target=worker, name="ManualScan").start()
 
 def background_loop():
     import os
@@ -113,7 +130,6 @@ def background_loop():
             now = datetime.datetime.now()
             date_str = now.strftime("%Y-%m-%d")
             
-            # 1. BAKIM GÖREVLERİ
             if now.hour == 0:
                 if now.minute == 0 and last_backup != date_str:
                     if os.path.exists("bot_data.db"):
@@ -129,48 +145,69 @@ def background_loop():
                     else: tg.send_message(tg_conf.ADMIN_ID, txt)
                     last_report = date_str
 
-            # 2. MESAİ KONTROLÜ
             active = db.get_setting("system_active")
-            start = now.replace(hour=0, minute=0)
-            end = now.replace(hour=21, minute=30)
+            mesai_start = now.replace(hour=8, minute=0, second=0, microsecond=0)
+            mesai_end = now.replace(hour=21, minute=30, second=0, microsecond=0)
             
-            if active and (start <= now <= end):
+            is_weekend = now.weekday() >= 5
+            in_working_hours = mesai_start <= now <= mesai_end
+            
+            if active and in_working_hours:
                 users_domains = db.get_all_users_domains()
                 if users_domains:
                     tasks = []
+                    seen_domains = set()
+                    
                     for uid, doms in users_domains.items():
                         status = db.check_user_access(uid)
-                        if not status["access"]: continue
-                        for d in doms: tasks.append((uid, d))
+                        if not status["access"]: 
+                            continue
+                        
+                        for d in doms:
+                            if d not in seen_domains:
+                                tasks.append((uid, d))
+                                seen_domains.add(d)
                     
                     total_tasks = len(tasks)
-                    processed = 0
+                    if total_tasks > 0:
+                        processed = 0
 
-                    def task_worker(task):
-                        nonlocal processed
-                        uid, dom = task
-                        with get_scanner() as s:
-                            try:
-                                res = s.sorgula(dom)
-                                process_scan_result(uid, dom, res)
-                                processed += 1
-                                update_progress("Oto", processed, total_tasks, dom, res.durum, res.captcha_text)
-                            except: pass
+                        def task_worker(task):
+                            nonlocal processed
+                            uid, dom = task
+                            with get_scanner() as s:
+                                try:
+                                    res = s.sorgula(dom)
+                                    process_scan_result(uid, dom, res)
+                                    processed += 1
+                                    update_progress("Oto", processed, total_tasks, dom, res.durum, res.captcha_text)
+                                except: pass
 
-                    threads = []
-                    for t in tasks:
-                        th = threading.Thread(target=task_worker, args=(t,))
-                        th.start()
-                        threads.append(th)
-                        time.sleep(0.2)
-                    
-                    for th in threads: th.join()
-                    sys.stdout.write("\n") # Satır sonu
+                        threads = []
+                        for t in tasks:
+                            th = threading.Thread(target=task_worker, args=(t,), name="AutoScan")
+                            th.start()
+                            threads.append(th)
+                            time.sleep(0.2)
+                        
+                        for th in threads: th.join()
+                        sys.stdout.write("\n")
+                
+                if is_weekend:
+                    logger.info("📅 Hafta sonu modu: 30 dakika bekleniyor...")
+                    time.sleep(1800)
+                else:
+                    logger.info("📅 Hafta içi modu: 5 dakika bekleniyor...")
+                    time.sleep(300)
+            else:
+                if not in_working_hours:
+                    next_check = mesai_start if now < mesai_start else mesai_start + datetime.timedelta(days=1)
+                    wait_minutes = int((next_check - now).total_seconds() / 60)
+                    logger.info(f"😴 Mesai dışı. Bir sonraki mesai: {next_check.strftime('%H:%M')} ({wait_minutes} dakika sonra)")
                 
                 time.sleep(300)
-            else:
-                time.sleep(60)
 
         except Exception as e:
             logger.error(f"Loop Hatası: {e}")
             time.sleep(60)
+

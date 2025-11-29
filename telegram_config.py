@@ -8,28 +8,60 @@ SUPPORT_URL = "https://t.me/londonlondon25"
 
 # --- KOMUT LİSTESİ ---
 BOT_COMMANDS = [
-    types.BotCommand("start", "Botu başlat / Yenile"),
-    types.BotCommand("menu", "Ana menüyü aç"),
-    types.BotCommand("hesabim", "Üyelik ve Limit durumu"),
-    types.BotCommand("listem", "Takip edilen domainler"),
-    types.BotCommand("ekle", "Yeni domain ekle"),
-    types.BotCommand("sil", "Domain silme menüsü"),
-    types.BotCommand("sorgu", "Hızlı manuel sorgu (Premium)"),
-    types.BotCommand("sss", "Sıkça Sorulan Sorular"),
-    types.BotCommand("destek", "İletişim ve Destek"),
-    types.BotCommand("ayarlar", "Yönetim Paneli (Admin)")
+    types.BotCommand("start", "🚀 Botu başlat"),
+    types.BotCommand("menu", "📋 Ana menü"),
+    types.BotCommand("hesabim", "👤 Hesap bilgileri"),
+    types.BotCommand("listem", "📄 Takip edilen domainler"),
+    types.BotCommand("ekle", "➕ Domain ekle"),
+    types.BotCommand("sil", "🗑️ Domain sil"),
+    types.BotCommand("sorgu", "🔍 Hızlı sorgu (Premium)"),
+    types.BotCommand("sss", "❓ Sık sorulan sorular"),
+    types.BotCommand("destek", "💬 Destek ve iletişim")
 ]
-
 # --- MESAJ METİNLERİ ---
 MESSAGES = {
     "welcome_new": (
         "👋 **Hoş Geldin {name}!**\n\n"
         "🤖 **TiB & BTK Takip Botu**\n"
         "Domainlerinizin engel durumunu 7/24 otomatik takip eder.\n\n"
-        "🎁 **Hediye:** Sana özel **48 Saatlik Deneme Sürümü** tanımlandı!\n"
-        "✅ 2 Adet Domain Ekleme\n✅ Anlık Engel Bildirimi\n✅ Otomatik Domain Atlama\n\n"
-        "👇 Başlamak için aşağıdaki menüyü kullanabilirsin."
+        "🎁 **48 Saatlik Ücretsiz Deneme!**\n\n"
+        "⏰ **Ne Zaman Başlamak İstersiniz?**"
     ),
+    
+    "trial_choice_weekend": (
+        "📅 **Bugün {day_name}**\n\n"
+        "⚠️ BTK hafta sonu genellikle engel atmıyor!\n\n"
+        "**Önerimiz:** Pazartesi sabahı başlatın, böylece 48 saati boşa harcamazsınız.\n\n"
+        "👇 Tercihinizi seçin:"
+    ),
+    
+    "trial_choice_weekday": (
+        "📅 **Bugün {day_name}**\n\n"
+        "✅ Hafta içindesiniz, hemen başlayabilirsiniz!\n\n"
+        "👇 Tercihinizi seçin:"
+    ),
+    
+    "trial_started_now": (
+        "🎉 **Trial Başlatıldı!**\n\n"
+        "⏱️ Süre: 48 saat\n"
+        "🚀 Başlangıç: {start_date}\n"
+        "⏳ Bitiş: {expiry_date}\n\n"
+        "✅ 2 Domain Ekleyebilirsiniz\n"
+        "✅ Otomatik Tarama Aktif\n"
+        "✅ Anlık Bildirimler\n"
+        "✅ Oto-Domain Atlama\n\n"
+        "👇 Domain eklemek için menüyü kullanın:"
+    ),
+    
+    "trial_scheduled_monday": (
+        "📅 **Trial Pazartesi Başlayacak!**\n\n"
+        "🗓️ Başlangıç: **{monday_date}** (Pazartesi 08:00)\n"
+        "⏳ Bitiş: **{expiry_date}** (Çarşamba 08:00)\n\n"
+        "✅ Şimdiden domain ekleyebilirsiniz!\n"
+        "✅ Pazartesi sabahı tarama otomatik başlar\n\n"
+        "👇 Domain eklemek için menüyü kullanın:"
+    ),
+    
     "welcome_old": "👋 Tekrar Merhaba {name}!\nKontrol paneli hazır:",
     
     "access_denied": "⛔ **Erişim Reddedildi**\n\nDurum: {status}\n\nDevam etmek için lütfen paket satın alın.",
@@ -38,10 +70,63 @@ MESSAGES = {
     "only_premium": "💎 Bu özellik Premium üyelere özeldir. Satın almak için destekle iletişime geçin.",
     
     "faq": (
-        "❓ **Sıkça Sorulan Sorular**\n\n"
-        "**Bot ne yapar?**\nBTK engelini takip eder.\n\n"
-        "**Oto-Atlama:**\n412 -> 413 geçişini otomatik yapar.\n\n"
-        "**Premium:**\n50+ Domain, Hızlı Sorgu, Kanıt Fotosu."
+        "❓ **Sıkça Sorulan Sorular**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        
+        "**🤖 Bot Ne İş Yapar?**\n"
+        "BTK'nın (Bilgi Teknolojileri Kurumu) TİB engelleme sistemini 7/24 otomatik takip eder. "
+        "Domainleriniz engellendiği anda anında bildirim alırsınız ve yeni domain'e otomatik geçiş yapılır.\n\n"
+        
+        "**📊 Paket Karşılaştırması:**\n\n"
+        
+        "🆓 **TRIAL (Deneme)**\n"
+        "• Süre: 48 saat\n"
+        "• Domain Limiti: 2 adet\n"
+        "• Otomatik Tarama: ✅ (5 dk'da bir)\n"
+        "• Anlık Bildirim: ✅\n"
+        "• Oto Domain Atlama: ✅\n"
+        "• Hızlı Sorgu: ❌\n"
+        "• Kanıt Ekran Görüntüsü: ❌\n\n"
+        
+        "💎 **PREMIUM**\n"
+        "• Süre: Paket süresine göre\n"
+        "• Domain Limiti: 50 adet\n"
+        "• Otomatik Tarama: ✅ (5 dk'da bir)\n"
+        "• Anlık Bildirim: ✅\n"
+        "• Oto Domain Atlama: ✅\n"
+        "• Hızlı Sorgu: ✅ (Manuel tarama)\n"
+        "• Kanıt Ekran Görüntüsü: ✅\n"
+        "• Öncelikli Destek: ✅\n\n"
+        
+        "**⏰ Tarama Saatleri:**\n"
+        "• Hafta İçi: 08:00 - 21:30 (5 dakikada bir)\n"
+        "• Hafta Sonu: 08:00 - 21:30 (30 dakikada bir)\n"
+        "• Gece: Uyku modu (BTK gece engel atmıyor)\n\n"
+        
+        "**🔄 Oto-Atlama Nasıl Çalışır?**\n"
+        "Domain'inizde sayı varsa (örn: bet412.com) engellendiğinde "
+        "bot otomatik olarak sayıyı 1 artırır (bet413.com) ve yeni domain'i takibe alır.\n\n"
+        
+        "**📸 Kanıt Fotoğrafı Nedir?**\n"
+        "Premium üyelerde domain engelli olduğunda BTK sitesinin "
+        "ekran görüntüsü kanıt olarak size iletilir.\n\n"
+        
+        "**🚀 Hızlı Sorgu Nedir?**\n"
+        "Premium üyeler '/sorgu' komutuyla tüm domainlerini anında "
+        "tarayıp sonuç alabilir. Normal taramayı beklemeden!\n\n"
+        
+        "**🔒 Verilerim Güvende Mi?**\n"
+        "Evet! Sadece domain adlarınız kaydedilir, hiçbir kişisel veri "
+        "veya site şifresi istenmez. Veriler şifreli SQLite veritabanında saklanır.\n\n"
+        
+        "**💰 Ödeme ve Paket Bilgisi:**\n"
+        "Paket fiyatları ve satın alma için:\n"
+        "👉 /destek komutuyla iletişime geçin\n\n"
+        
+        "**❓ Başka Sorularınız İçin:**\n"
+        "📞 /destek - Canlı destek\n"
+        "📋 /hesabim - Paket bilgileriniz\n"
+        "📄 /listem - Domain listeniz"
     ),
     
     "add_prompt": "✍️ **Eklenecek domainleri yazın:**\n(Tekli, virgüllü veya .txt dosyası gönderebilirsiniz)",
@@ -62,6 +147,21 @@ MESSAGES = {
 }
 
 # --- MENÜ TASARIMLARI (UI) ---
+
+def create_trial_choice_menu(is_weekend):
+    """Trial başlangıç seçimi menüsü"""
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    
+    if is_weekend:
+        btn_now = types.InlineKeyboardButton("⚡ Hemen Başlat (Test İçin)", callback_data="trial_start_now")
+        btn_monday = types.InlineKeyboardButton("📅 Pazartesi Başlat (ÖNERİLEN)", callback_data="trial_start_monday")
+    else:
+        btn_now = types.InlineKeyboardButton("⚡ Hemen Başlat", callback_data="trial_start_now")
+        btn_monday = types.InlineKeyboardButton("📅 Pazartesi Başlat", callback_data="trial_start_monday")
+    
+    markup.add(btn_monday)
+    markup.add(btn_now)
+    return markup
 
 def create_main_menu():
     markup = types.InlineKeyboardMarkup(row_width=2)
@@ -93,9 +193,6 @@ def create_settings_menu(s_silent, s_auto, s_active):
     return markup
 
 def create_domain_list_menu(domains_info):
-    """
-    domains_info: [('site.com', 'TEMİZ', '14:30'), ...] listesi alır.
-    """
     markup = types.InlineKeyboardMarkup(row_width=1)
     for domain, status, time in domains_info:
         icon = "✅" if status == "TEMİZ" else "🚫" if status == "ENGELLİ" else "❓"
