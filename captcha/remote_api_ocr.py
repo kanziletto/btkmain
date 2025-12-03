@@ -14,7 +14,7 @@ class RemoteAPISolver(BaseCaptchaSolver):
             with open(image_path, 'rb') as f:
                 files = {'file': f}
                 # Timeout süresini 5 saniye olarak koruyoruz
-                response = requests.post(self.api_url, files=files, timeout=5)
+                response = requests.post(self.api_url, files=files, timeout=30)
             
             if response.status_code == 200:
                 result = response.json()

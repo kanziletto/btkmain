@@ -1,13 +1,19 @@
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from config import HEADLESS_MODE, get_random_proxy
+# Eğer config.py'de MAX_CONCURRENT_SCANS yoksa varsayılan 2 al
+try:
+    from config import MAX_CONCURRENT_SCANS
+except ImportError:
+    MAX_CONCURRENT_SCANS = 2
+
 from utils import logger
 import queue
 import atexit
 
 # Global driver havuzu
 _driver_pool = None
-_pool_size = 2
+_pool_size = MAX_CONCURRENT_SCANS
 
 def _create_driver():
     """Yeni bir driver oluşturur (dahili kullanım)"""
@@ -39,6 +45,12 @@ def _create_driver():
 
     try:
         driver = webdriver.Chrome(service=Service(), options=options)
+        
+        # 🚨 KRİTİK AYAR: Sayfa yükleme zaman aşımı (30 saniye)
+        # Bu ayar olmazsa proxy yavaşladığında bot sonsuza kadar donar.
+        driver.set_page_load_timeout(30)
+        driver.set_script_timeout(30)
+        
         logger.info(f"✅ Yeni Chrome başlatıldı")
         return driver
     except Exception as e:
@@ -51,7 +63,7 @@ def init_driver_pool():
     
     if _driver_pool is not None:
         logger.warning("⚠️ Driver havuzu zaten başlatılmış!")
-        return  # Zaten başlatılmış
+        return
     
     logger.info(f"🔧 {_pool_size} adet Chrome başlatılıyor...")
     _driver_pool = queue.Queue(maxsize=_pool_size)
@@ -63,11 +75,9 @@ def init_driver_pool():
             logger.info(f"✅ Chrome #{i+1} havuza eklendi")
         except Exception as e:
             logger.error(f"❌ Chrome #{i+1} başlatılamadı: {e}")
-            # İlk Chrome bile başlamazsa hata fırlat
             if i == 0:
                 raise Exception("Hiçbir Chrome başlatılamadı!")
     
-    # Uygulama kapatıldığında temizlik yap
     atexit.register(cleanup_driver_pool)
     logger.info(f"🎉 Driver havuzu hazır! ({_pool_size} Chrome)")
 
@@ -93,59 +103,41 @@ def cleanup_driver_pool():
     logger.info(f"✅ {closed_count} Chrome kapatıldı")
 
 def get_driver():
-    """
-    Havuzdan bir driver al (context manager ile kullanılır)
-    
-    Kullanım:
-        with get_driver() as driver:
-            driver.get("https://example.com")
-            # ... işlemler
-        # Blok bitince otomatik havuza geri koyulur
-    """
+    """Havuzdan bir driver al (context manager ile kullanılır)"""
     if _driver_pool is None:
         logger.warning("⚠️ Driver havuzu başlatılmamış, şimdi başlatılıyor...")
         init_driver_pool()
     
     class DriverContext:
         def __enter__(self):
-            """Blok başladığında havuzdan driver al"""
-            self.driver = _driver_pool.get()  # Havuzdan al (havuz boşsa bekler)
-            logger.debug(f"🔵 Driver havuzdan alındı (Kalan: {_driver_pool.qsize()})")
+            # Bloklayarak al (timeout yok, çünkü havuzda hep döngü var)
+            self.driver = _driver_pool.get()
             return self.driver
         
         def __exit__(self, exc_type, exc_val, exc_tb):
-            """Blok bittiğinde driver'ı temizle ve havuza geri koy"""
-            
             if exc_type is not None:
-                # Hata oluştuysa driver'ı yenile
+                # Timeout veya hata durumunda driver bozulmuş olabilir, yenile.
                 logger.warning(f"⚠️ Driver hatası: {exc_val}")
-                logger.info("🔄 Bozuk driver yenileniyor...")
-                try:
-                    self.driver.quit()  # Eski Chrome'u kapat
-                except Exception as e:
-                    logger.error(f"❌ Driver kapatma hatası: {e}")
+                try: self.driver.quit()
+                except: pass
                 
-                try:
-                    self.driver = _create_driver()  # Yeni Chrome oluştur
-                    logger.info("✅ Yeni driver oluşturuldu")
-                except Exception as e:
-                    logger.error(f"❌ Yeni driver oluşturulamadı: {e}")
-                    # Yeni driver oluşturulamazsa boş havuza dönme
-                    return False
+                # Bozuk driver yerine yenisini koy
+                try: 
+                    self.driver = _create_driver()
+                    logger.info("♻️ Driver yenilendi.")
+                except: 
+                    # Eğer yenisini oluşturamazsa havuz eksik kalır ama sistem durmaz
+                    return False 
             else:
-                # Başarılıysa sayfayı temizle
+                # Başarılıysa temizle
                 try:
                     self.driver.delete_all_cookies()
                     self.driver.execute_script("window.localStorage.clear();")
                     self.driver.execute_script("window.sessionStorage.clear();")
-                except Exception as e:
-                    logger.warning(f"⚠️ Temizlik hatası (önemsiz): {e}")
+                except: pass
             
             # Havuza geri koy
             _driver_pool.put(self.driver)
-            logger.debug(f"🟢 Driver havuza geri kondu (Toplam: {_driver_pool.qsize()})")
-            
-            # Hatayı yutma (False döndürürse hata yutar)
             return False
     
     return DriverContext()

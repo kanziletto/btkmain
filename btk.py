@@ -1,5 +1,6 @@
 import time
-import os
+import os  # ✅ BU SATIR KRİTİK
+import io
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -7,7 +8,7 @@ from browser import get_driver
 from captcha.manager import CaptchaManager
 from config import CAPTCHA_PROVIDERS
 from utils import logger, SorguSonucu
-from PIL import Image, ImageOps
+from PIL import Image
 
 class BTKScanner:
     def __init__(self):
@@ -20,7 +21,6 @@ class BTKScanner:
             w, h = img.size
             img = img.crop((2, 2, w - 2, h - 2))
             img = img.resize((w * 2, h * 2), Image.Resampling.LANCZOS)
-            img = ImageOps.expand(img, border=20, fill='white')
             base, ext = os.path.splitext(image_path)
             processed_path = f"{base}_proc{ext}"
             img.save(processed_path)
@@ -28,15 +28,41 @@ class BTKScanner:
         except:
             return image_path
 
-    def _tek_sorgu(self, domain: str) -> SorguSonucu:
-        """Tek bir tarama işlemini gerçekleştirir."""
+    def _take_screenshot(self, driver, domain):
+        """Yardımcı Fonksiyon: Ekran görüntüsü alır"""
+        try:
+            full_path = f"full_temp_{domain}.png"
+            driver.save_screenshot(full_path)
+            try:
+                # Kırpma denemesi
+                with Image.open(full_path) as img:
+                    crop_area = (472, 0, 1433, 597)
+                    cropped_img = img.crop(crop_area)
+                    # RAM (BytesIO) olarak döndürelim ki disk yorulmasın
+                    output = io.BytesIO()
+                    cropped_img.save(output, format='PNG')
+                    output.seek(0)
+                    return output
+            except:
+                # Kırpamazsa dosyayı oku ve döndür
+                with open(full_path, 'rb') as f:
+                    return io.BytesIO(f.read())
+            finally:
+                # Temizlik
+                if os.path.exists(full_path):
+                    try: os.remove(full_path)
+                    except: pass
+        except Exception as e:
+            logger.warning(f"Screenshot hatası: {e}")
+            return None
+
+    def _tek_sorgu(self, domain: str, force_screenshot=False) -> SorguSonucu:
         start_time = time.time()
         img_path = f"temp_captcha_{domain}.png"
         final_captcha_path = None
         screenshots = [] 
         
         try:
-            # ✅ YENİ: Context manager ile driver al
             with get_driver() as driver:
                 driver.get(self.base_url)
                 wait = WebDriverWait(driver, 30)
@@ -55,9 +81,13 @@ class BTKScanner:
                 input_captcha.clear()
                 input_captcha.send_keys(captcha_code)
                 
-                time.sleep(0.5)
+                time.sleep(0.1)
                 btn_sorgula.click()
-                time.sleep(3.0) 
+                
+                # Akıllı Bekleme
+                try:
+                    wait.until(lambda d: any(x in d.page_source.lower() for x in ["engellenmiştir", "bulunamadı", "yanlış", "hatalı"]))
+                except: pass
                 
                 page_source = driver.page_source.lower()
                 durum = "BİLİNMİYOR"
@@ -65,32 +95,18 @@ class BTKScanner:
 
                 if "yanlış girdiniz" in page_source or "hatalı" in page_source:
                     durum = "HATA"
-                    detay = "Captcha veya Veri Hatası"
+                    detay = "Captcha/Veri Hatası"
+                
                 elif "engellenmiştir" in page_source:
                     durum = "ENGELLİ"
-                    # --- KOORDİNATLARA GÖRE KIRPMA ---
-                    try:
-                        full_path = f"full_temp_{domain}.png"
-                        driver.save_screenshot(full_path)
-                        with Image.open(full_path) as img:
-                            # Koordinatlar: (Sol, Üst, Sağ, Alt)
-                            crop_area = (472, 0, 1433, 597)
-                            cropped_img = img.crop(crop_area)
-                            
-                            s3 = f"kanit_{domain}.png"
-                            cropped_img.save(s3)
-                            screenshots.append(s3)
-                        if os.path.exists(full_path): 
-                            os.remove(full_path)
-                    except Exception as e:
-                        logger.warning(f"Kırpma hatası: {e}")
-                        # Hata olursa tam sayfa al
-                        s3_full = f"full_kanit_{domain}.png"
-                        driver.save_screenshot(s3_full)
-                        screenshots.append(s3_full)
-                    # ---------------------------------
+                    ss = self._take_screenshot(driver, domain)
+                    if ss: screenshots.append(ss)
+                
                 elif "bulunamadı" in page_source:
                     durum = "TEMİZ"
+                    if force_screenshot:
+                        ss = self._take_screenshot(driver, domain)
+                        if ss: screenshots.append(ss)
                 
                 total_time = round(time.time() - start_time, 2)
                 return SorguSonucu(domain, durum, detay, total_time, captcha_code, screenshot_paths=screenshots)
@@ -100,40 +116,26 @@ class BTKScanner:
             return SorguSonucu(domain, "HATA", str(e), 0.0, screenshot_paths=screenshots)
         
         finally:
-            # ✅ YENİ: driver.quit() KALDIRILDI! Context manager otomatik yönetiyor
-            # Sadece geçici dosyaları temizle
+            # Temizlik işlemleri (os modülü burada kullanılıyor)
             if os.path.exists(img_path):
-                try: 
-                    os.remove(img_path) 
-                except: 
-                    pass
-            
+                try: os.remove(img_path) 
+                except: pass
             if final_captcha_path and os.path.exists(final_captcha_path):
-                try: 
-                    os.remove(final_captcha_path)
-                except: 
-                    pass
+                try: os.remove(final_captcha_path)
+                except: pass
 
-    def sorgula(self, domain: str, max_retries=10) -> SorguSonucu:
-        """
-        Hata durumunda belirtilen sayı kadar tekrar dener.
-        Captcha çözülene kadar denemeler devam eder (müşteri sonuç bekler).
-        """
+    def sorgula(self, domain: str, max_retries=10, force_screenshot=False) -> SorguSonucu:
         sonuc = None
-        
         for attempt in range(1, max_retries + 1):
             if attempt > 1:
                 logger.info(f"🔄 {domain} tekrar deneniyor ({attempt}/{max_retries})...")
             
-            sonuc = self._tek_sorgu(domain)
+            sonuc = self._tek_sorgu(domain, force_screenshot=force_screenshot)
             
-            # Eğer durum HATA değilse (TEMİZ veya ENGELLİ ise) sonucu hemen döndür
             if sonuc.durum != "HATA":
                 return sonuc
             
-            # Hata aldıysak biraz bekle ve tekrar dene
-            time.sleep(2)
+            time.sleep(1)
         
-        # Deneme hakkı bitti, son alınan sonucu (HATA) döndür
         logger.error(f"❌ {domain}: {max_retries} denemede başarısız oldu")
         return sonuc

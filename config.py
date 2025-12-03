@@ -1,24 +1,26 @@
-# config.py
 import os
 import random
 
-# Tokenleriniz
+# --- KİMLİK BİLGİLERİ ---
 BOT_TOKEN = "8280880523:AAHa1jdL_JKZa1YqLr063Qp6VGOLFU2W7QQ"
-
-# YENİ: Admin ve Log Kanalı Bilgileri
 ADMIN_ID = 7107697888
 ADMIN_CHANNEL_ID = -1003498419781
+SUPPORT_URL = "https://t.me/londonlondon25"
 
-# --- OCR AYARLARI ---
-OCR_API_URL = "http://10.0.0.87:8000/ocr" 
+# --- SUNUCU AYARLARI ---
+# OCR ve Resim Upload Sunucusu (Server 2)
+# Not: Buraya 2. sunucunuzun PUBLIC IP adresini yazın
+OCR_API_URL = "http://10.0.0.87:8000/ocr"
+IMAGE_UPLOAD_URL = "http://79.76.116.181:8000/upload"
 
-# --- CAPTCHA SEÇİMİ ---
+# --- DİĞER AYARLAR ---
 CAPTCHA_PROVIDERS = ['remote_api'] 
-
-# Selenium
 HEADLESS_MODE = True
+DB_FILE = "bot_data.db"
+LOG_DIR = "logs"
+MAX_CONCURRENT_SCANS = 2
 
-# Proxy Listeniz
+# --- PROXY LİSTESİ ---
 PROXY_LIST = [
     "212.135.181.42:6224", "195.40.186.107:5789", "195.40.186.41:5723",
     "108.165.227.66:5307", "108.165.227.77:5318", "23.26.231.88:7329",
@@ -37,7 +39,3 @@ def get_random_proxy():
     if not proxy.startswith("http"):
         return f"http://{proxy}"
     return proxy
-
-# Yollar
-DB_FILE = "domains.json"
-LOG_DIR = "logs"

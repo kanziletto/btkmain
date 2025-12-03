@@ -1,10 +1,5 @@
 from telebot import types
-
-# --- KİMLİK VE BAĞLANTILAR ---
-BOT_TOKEN = "8280880523:AAHa1jdL_JKZa1YqLr063Qp6VGOLFU2W7QQ"
-ADMIN_ID = 7107697888
-ADMIN_CHANNEL_ID = -1003498419781
-SUPPORT_URL = "https://t.me/londonlondon25"
+from config import BOT_TOKEN, ADMIN_ID, ADMIN_CHANNEL_ID, SUPPORT_URL
 
 # --- KOMUT LİSTESİ ---
 BOT_COMMANDS = [
@@ -16,8 +11,12 @@ BOT_COMMANDS = [
     types.BotCommand("sil", "🗑️ Domain sil"),
     types.BotCommand("sorgu", "🔍 Hızlı sorgu (Premium)"),
     types.BotCommand("sss", "❓ Sık sorulan sorular"),
+    types.BotCommand("webhooks", "🔗 Webhook yönetimi (Admin)"),
+    types.BotCommand("webhook_ekle", "➕ Yeni Webhook (Admin)"),
+    types.BotCommand("db_export", "📊 Veritabanı export (Admin)"),
     types.BotCommand("destek", "💬 Destek ve iletişim")
 ]
+
 # --- MESAJ METİNLERİ ---
 MESSAGES = {
     "welcome_new": (
@@ -31,7 +30,7 @@ MESSAGES = {
     "trial_choice_weekend": (
         "📅 **Bugün {day_name}**\n\n"
         "⚠️ BTK hafta sonu genellikle engel atmıyor!\n\n"
-        "**Önerimiz:** Pazartesi sabahı başlatın, böylece 48 saati boşa harcamazsınız.\n\n"
+        "**Önerimiz:** Pazartesi sabahı başlatın.\n\n"
         "👇 Tercihinizi seçin:"
     ),
     
@@ -63,70 +62,54 @@ MESSAGES = {
     ),
     
     "welcome_old": "👋 Tekrar Merhaba {name}!\nKontrol paneli hazır:",
-    
     "access_denied": "⛔ **Erişim Reddedildi**\n\nDurum: {status}\n\nDevam etmek için lütfen paket satın alın.",
     "trial_expired": "⏳ **Deneme Süreniz Sona Erdi!**\n\nDomain takibiniz durduruldu. Kesintisiz hizmet için lütfen iletişime geçin.",
     "only_admin": "⛔ Bu komutu sadece yöneticiler kullanabilir.",
     "only_premium": "💎 Bu özellik Premium üyelere özeldir. Satın almak için destekle iletişime geçin.",
     
     "faq": (
-        "❓ **Sıkça Sorulan Sorular**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🤖 **BTK Takip Botu - Detaylı Bilgi & SSS**\n"
+        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
         
-        "**🤖 Bot Ne İş Yapar?**\n"
-        "BTK'nın (Bilgi Teknolojileri Kurumu) TİB engelleme sistemini 7/24 otomatik takip eder. "
-        "Domainleriniz engellendiği anda anında bildirim alırsınız ve yeni domain'e otomatik geçiş yapılır.\n\n"
+        "**🎯 Bot Ne İşe Yarar?**\n"
+        "Domainlerinizin BTK (TİB) tarafından engellenip engellenmediğini 7/24 otomatik olarak denetler. "
+        "Engelleme anında Telegram ve (varsa) Slack/Discord üzerinden **kanıt fotoğraflı** bildirim gönderir.\n\n"
         
-        "**📊 Paket Karşılaştırması:**\n\n"
+        "**⚡ Özellikler ve Çalışma Prensibi**\n\n"
         
+        "**1. Akıllı Tarama Sistemi**\n"
+        "• **Hafta İçi:** Her 5 dakikada bir tarama yapılır.\n"
+        "• **Hafta Sonu:** BTK çalışma düzenine göre 30 dakikada bir kontrol edilir.\n"
+        "• **OCR Teknolojisi:** Sorgu ekranındaki güvenlik kodları (Captcha) yapay zeka ile otomatik çözülür.\n\n"
+        
+        "**2. 🔄 Oto-Domain Geçişi (Auto-Switch)**\n"
+        "• Siteniz engellendiğinde (Örn: `site412.com`), bot bunu algılar.\n"
+        "• Domaindeki sayıyı otomatik 1 artırır (Örn: `site413.com`).\n"
+        "• Yeni domaini otomatik takibe alır, eskisini siler.\n"
+        "• **Not:** Domaininizde sayı yoksa bu özellik çalışmaz.\n\n"
+        
+        "**3. 📸 Kanıtlı Bildirimler**\n"
+        "• Engelleme tespit edildiğinde BTK sayfasının ekran görüntüsü alınır.\n"
+        "• Bu görsel size Telegram ve Webhook (Slack) üzerinden iletilir.\n\n"
+        
+        "**📦 Üyelik Paketleri**\n\n"
         "🆓 **TRIAL (Deneme)**\n"
-        "• Süre: 48 saat\n"
-        "• Domain Limiti: 2 adet\n"
-        "• Otomatik Tarama: ✅ (5 dk'da bir)\n"
-        "• Anlık Bildirim: ✅\n"
-        "• Oto Domain Atlama: ✅\n"
-        "• Hızlı Sorgu: ❌\n"
-        "• Kanıt Ekran Görüntüsü: ❌\n\n"
+        "• Süre: 48 Saat\n"
+        "• Limit: 2 Domain\n"
+        "• Özellikler: Tam Otomatik Tarama + Bildirim\n\n"
         
         "💎 **PREMIUM**\n"
-        "• Süre: Paket süresine göre\n"
-        "• Domain Limiti: 50 adet\n"
-        "• Otomatik Tarama: ✅ (5 dk'da bir)\n"
-        "• Anlık Bildirim: ✅\n"
-        "• Oto Domain Atlama: ✅\n"
-        "• Hızlı Sorgu: ✅ (Manuel tarama)\n"
-        "• Kanıt Ekran Görüntüsü: ✅\n"
-        "• Öncelikli Destek: ✅\n\n"
+        "• Süre: Paket Süresince\n"
+        "• Limit: 50 Domain\n"
+        "• Özellikler: Hızlı Tarama + `/sorgu` ile Anlık Manuel Kontrol + Öncelikli Destek\n\n"
         
-        "**⏰ Tarama Saatleri:**\n"
-        "• Hafta İçi: 08:00 - 21:30 (5 dakikada bir)\n"
-        "• Hafta Sonu: 08:00 - 21:30 (30 dakikada bir)\n"
-        "• Gece: Uyku modu (BTK gece engel atmıyor)\n\n"
-        
-        "**🔄 Oto-Atlama Nasıl Çalışır?**\n"
-        "Domain'inizde sayı varsa (örn: bet412.com) engellendiğinde "
-        "bot otomatik olarak sayıyı 1 artırır (bet413.com) ve yeni domain'i takibe alır.\n\n"
-        
-        "**📸 Kanıt Fotoğrafı Nedir?**\n"
-        "Premium üyelerde domain engelli olduğunda BTK sitesinin "
-        "ekran görüntüsü kanıt olarak size iletilir.\n\n"
-        
-        "**🚀 Hızlı Sorgu Nedir?**\n"
-        "Premium üyeler '/sorgu' komutuyla tüm domainlerini anında "
-        "tarayıp sonuç alabilir. Normal taramayı beklemeden!\n\n"
-        
-        "**🔒 Verilerim Güvende Mi?**\n"
-        "Evet! Sadece domain adlarınız kaydedilir, hiçbir kişisel veri "
-        "veya site şifresi istenmez. Veriler şifreli SQLite veritabanında saklanır.\n\n"
-        
-        "**💰 Ödeme ve Paket Bilgisi:**\n"
-        "Paket fiyatları ve satın alma için:\n"
-        "👉 /destek komutuyla iletişime geçin\n\n"
-        
-        "**❓ Başka Sorularınız İçin:**\n"
-        "📞 /destek - Canlı destek\n"
-        "📋 /hesabim - Paket bilgileriniz\n"
-        "📄 /listem - Domain listeniz"
+        "**❓ Sıkça Sorulan Sorular**\n\n"
+        "**S: HATA uyarısı alıyorum?**\n"
+        "C: BTK sitesi bazen yoğun olabilir veya Captcha çözülemeyebilir. Sistem otomatik olarak tekrar deneyecektir.\n\n"
+        "**S: Webhook nasıl eklerim?**\n"
+        "C: Webhook entegrasyonu (Slack/Discord) için yönetici ile iletişime geçiniz.\n\n"
+        "**💬 İletişim & Destek:**\n"
+        "👉 /destek komutunu kullanabilirsiniz."
     ),
     
     "add_prompt": "✍️ **Eklenecek domainleri yazın:**\n(Tekli, virgüllü veya .txt dosyası gönderebilirsiniz)",
@@ -177,19 +160,6 @@ def create_main_menu():
     markup.add(btn_ekle, btn_sil)
     markup.add(btn_sorgu, btn_sss)
     markup.add(btn_destek)
-    return markup
-
-def create_settings_menu(s_silent, s_auto, s_active):
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    txt_silent = "✅ Açık" if s_silent else "❌ Kapalı"
-    txt_auto = "✅ Açık" if s_auto else "❌ Kapalı"
-    txt_active = "✅ AKTİF" if s_active else "🛑 DURDURULDU"
-    
-    btn1 = types.InlineKeyboardButton(f"🔔 Sessiz Mod: {txt_silent}", callback_data="toggle_silent")
-    btn2 = types.InlineKeyboardButton(f"🔄 Oto-Geçiş: {txt_auto}", callback_data="toggle_auto")
-    btn3 = types.InlineKeyboardButton(f"🤖 Sistem: {txt_active}", callback_data="toggle_active")
-    btn_back = types.InlineKeyboardButton("🔙 Ana Menü", callback_data="main_menu")
-    markup.add(btn1, btn2, btn3, btn_back)
     return markup
 
 def create_domain_list_menu(domains_info):
