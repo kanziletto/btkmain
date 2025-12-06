@@ -1,9 +1,10 @@
 import time
-import os  # ✅ BU SATIR KRİTİK
+import os
 import io
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import StaleElementReferenceException, TimeoutException
 from browser import get_driver
 from captcha.manager import CaptchaManager
 from config import CAPTCHA_PROVIDERS
@@ -14,6 +15,7 @@ class BTKScanner:
     def __init__(self):
         self.base_url = "https://internet2.btk.gov.tr/sitesorgu/"
         self.captcha_mgr = CaptchaManager(CAPTCHA_PROVIDERS)
+        self._page_loaded = False  # Sayfa yüklü mü?
 
     def preprocess_image(self, image_path: str) -> str:
         try:
@@ -56,78 +58,106 @@ class BTKScanner:
             logger.warning(f"Screenshot hatası: {e}")
             return None
 
-    def _tek_sorgu(self, domain: str, force_screenshot=False) -> SorguSonucu:
+    def _tek_sorgu(self, domain: str, driver, force_screenshot=False) -> SorguSonucu:
+        """Tek bir sorgu yapar - driver dışarıdan verilir"""
         start_time = time.time()
         screenshots = [] 
         
         try:
-            with get_driver() as driver:
+            # Polling interval: 0.2s (varsayılan 0.5s'den hızlı)
+            wait = WebDriverWait(driver, 15, poll_frequency=0.2)
+            
+            # Sayfa yüklü değilse veya elementler bulunamıyorsa yeniden yükle
+            try:
+                input_domain = driver.find_element(By.ID, "deger")
+                input_captcha = driver.find_element(By.ID, "security_code")
+                captcha_img = driver.find_element(By.ID, "security_code_image")
+                btn_sorgula = driver.find_element(By.ID, "submit1")
+                
+                # Elementler stale mi kontrol et
+                input_domain.is_displayed()
+            except (StaleElementReferenceException, Exception):
+                # Sayfa yeniden yüklenmeli
                 driver.get(self.base_url)
-                wait = WebDriverWait(driver, 30)
-
                 input_domain = wait.until(EC.visibility_of_element_located((By.ID, "deger")))
                 input_captcha = driver.find_element(By.ID, "security_code")
                 captcha_img = wait.until(EC.visibility_of_element_located((By.ID, "security_code_image")))
                 btn_sorgula = driver.find_element(By.ID, "submit1")
 
-                png_data = captcha_img.screenshot_as_png
-                
-                captcha_code, provider = self.captcha_mgr.solve(png_data)
-                
-                input_domain.clear()
-                input_domain.send_keys(domain)
-                input_captcha.clear()
-                input_captcha.send_keys(captcha_code)
-                
-                time.sleep(0.1)
-                btn_sorgula.click()
-                
-                # Akıllı Bekleme
-                try:
-                    wait.until(lambda d: any(x in d.page_source.lower() for x in ["engellenmiştir", "bulunamadı", "yanlış", "hatalı"]))
-                except: pass
-                
-                page_source = driver.page_source.lower()
-                durum = "BİLİNMİYOR"
-                detay = "Analiz edilemedi"
+            # Captcha al ve çöz
+            png_data = captcha_img.screenshot_as_png
+            captcha_code, provider = self.captcha_mgr.solve(png_data)
+            
+            # Form doldur
+            input_domain.clear()
+            input_domain.send_keys(domain)
+            input_captcha.clear()
+            input_captcha.send_keys(captcha_code)
+            
+            btn_sorgula.click()
+            
+            # Akıllı Bekleme (hızlandırılmış polling)
+            try:
+                wait.until(lambda d: any(x in d.page_source.lower() for x in ["engellenmiştir", "bulunamadı", "yanlış", "hatalı"]))
+            except TimeoutException:
+                pass
+            
+            page_source = driver.page_source.lower()
+            durum = "BİLİNMİYOR"
+            detay = "Analiz edilemedi"
 
-                if "yanlış girdiniz" in page_source or "hatalı" in page_source:
-                    durum = "HATA"
-                    detay = "Captcha/Veri Hatası"
-                
-                elif "engellenmiştir" in page_source:
-                    durum = "ENGELLİ"
+            if "yanlış girdiniz" in page_source or "hatalı" in page_source:
+                durum = "HATA"
+                detay = "Captcha/Veri Hatası"
+                # Captcha yanlış girildiyse sayfayı yenile (yeni captcha için)
+                driver.get(self.base_url)
+            
+            elif "engellenmiştir" in page_source:
+                durum = "ENGELLİ"
+                ss = self._take_screenshot(driver, domain)
+                if ss: screenshots.append(ss)
+                # Sayfa yenileme YOK - sonraki sorguda element kontrolü yapılacak
+            
+            elif "bulunamadı" in page_source:
+                durum = "TEMİZ"
+                if force_screenshot:
                     ss = self._take_screenshot(driver, domain)
                     if ss: screenshots.append(ss)
-                
-                elif "bulunamadı" in page_source:
-                    durum = "TEMİZ"
-                    if force_screenshot:
-                        ss = self._take_screenshot(driver, domain)
-                        if ss: screenshots.append(ss)
-                
-                total_time = round(time.time() - start_time, 2)
-                return SorguSonucu(domain, durum, detay, total_time, captcha_code, screenshot_paths=screenshots)
+                # Sayfa yenileme YOK - sonraki sorguda element kontrolü yapılacak
+            
+            total_time = round(time.time() - start_time, 2)
+            return SorguSonucu(domain, durum, detay, total_time, captcha_code, screenshot_paths=screenshots)
 
         except Exception as e:
             logger.error(f"Tarama hatası ({domain}): {e}")
+            # Hata durumunda sayfayı yeniden yükle
+            try:
+                driver.get(self.base_url)
+            except:
+                pass
             return SorguSonucu(domain, "HATA", str(e), 0.0, screenshot_paths=screenshots)
-        
-        finally:
-              pass
 
-    def sorgula(self, domain: str, max_retries=10, force_screenshot=False) -> SorguSonucu:
+    def sorgula(self, domain: str, max_retries=5, force_screenshot=False) -> SorguSonucu:
+        """Domain sorgular - driver havuzdan alınır ve yeniden kullanılır"""
         sonuc = None
-        for attempt in range(1, max_retries + 1):
-            if attempt > 1:
-                logger.info(f"🔄 {domain} tekrar deneniyor ({attempt}/{max_retries})...")
-            
-            sonuc = self._tek_sorgu(domain, force_screenshot=force_screenshot)
-            
-            if sonuc.durum != "HATA":
-                return sonuc
-            
-            time.sleep(1)
         
-        logger.error(f"❌ {domain}: {max_retries} denemede başarısız oldu")
-        return sonuc
+        with get_driver() as driver:
+            # İlk açılışta sayfayı yükle
+            try:
+                driver.get(self.base_url)
+            except:
+                pass
+            
+            for attempt in range(1, max_retries + 1):
+                if attempt > 1:
+                    logger.info(f"🔄 {domain} tekrar deneniyor ({attempt}/{max_retries})...")
+                
+                sonuc = self._tek_sorgu(domain, driver, force_screenshot=force_screenshot)
+                
+                if sonuc.durum != "HATA":
+                    return sonuc
+                
+                time.sleep(0.5)
+            
+            logger.error(f"❌ {domain}: {max_retries} denemede başarısız oldu")
+            return sonuc

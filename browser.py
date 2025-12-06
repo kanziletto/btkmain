@@ -34,25 +34,18 @@ def _create_driver():
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--log-level=3")
     
-    # Anti-Tespit
-    options.add_argument("--disable-blink-features=AutomationControlled") 
-    options.add_experimental_option("excludeSwitches", ["enable-automation"])
-    options.add_experimental_option('useAutomationExtension', False)
-    
-    # Proxy
+    # Proxy (TR IP için gerekli)
     proxy = get_random_proxy()
     if proxy:
         options.add_argument(f'--proxy-server={proxy}')
 
-    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
-
     try:
         driver = webdriver.Chrome(service=Service(), options=options)
         
-        # 🚨 KRİTİK AYAR: Sayfa yükleme zaman aşımı (30 saniye)
+        # 🚨 KRİTİK AYAR: Sayfa yükleme zaman aşımı (15 saniye)
         # Bu ayar olmazsa proxy yavaşladığında bot sonsuza kadar donar.
-        driver.set_page_load_timeout(30)
-        driver.set_script_timeout(30)
+        driver.set_page_load_timeout(15)
+        driver.set_script_timeout(15)
         
         # YENİ: Kullanım sayacı ekle
         driver.usage_count = 0 

@@ -43,6 +43,30 @@ class Database:
             c.execute('''CREATE TABLE IF NOT EXISTS stats (date TEXT PRIMARY KEY, total INTEGER DEFAULT 0, clean INTEGER DEFAULT 0, banned INTEGER DEFAULT 0, error INTEGER DEFAULT 0)''')
             c.execute('''CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value INTEGER)''')
             c.execute('''CREATE TABLE IF NOT EXISTS webhooks (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, name TEXT, url TEXT, domains TEXT, expiry_date TEXT, active INTEGER DEFAULT 1)''')
+            
+            # Ödeme kayıtları tablosu
+            c.execute('''CREATE TABLE IF NOT EXISTS payments (
+                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         user_id TEXT,
+                         invoice_id TEXT UNIQUE,
+                         amount REAL,
+                         currency TEXT DEFAULT 'USDT',
+                         plan_type TEXT,
+                         days INTEGER,
+                         status TEXT DEFAULT 'pending',
+                         created_at TEXT,
+                         paid_at TEXT
+                         )''')
+            
+            # Referans sistemi tablosu
+            c.execute('''CREATE TABLE IF NOT EXISTS referrals (
+                         id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         referrer_id TEXT,
+                         referred_id TEXT UNIQUE,
+                         status TEXT DEFAULT 'pending',
+                         reward_days INTEGER DEFAULT 0,
+                         created_at TEXT
+                         )''')
 
             c.execute("SELECT * FROM users WHERE user_id=?", (str(ADMIN_ID),))
             if not c.fetchone():
@@ -116,6 +140,178 @@ class Database:
             conn.execute("INSERT OR REPLACE INTO users (user_id, plan, start_date, expiry_date, notified_expiry, ultra_enabled) VALUES (?, ?, ?, ?, ?, ?)", (str(user_id), "ultra", str(now), str(expiry), 0, 1))
             conn.commit(); conn.close(); return str(expiry)
 
+    def get_expiring_users(self, hours=24):
+        """24 saat içinde süresi dolacak VE henüz uyarılmamış kullanıcıları getirir.
+        notified_expiry: 0=bildirim yok, 1=24h uyarısı gönderildi, 2=süre doldu bildirimi gönderildi
+        """
+        conn = self._get_conn()
+        now = datetime.datetime.now()
+        future = now + datetime.timedelta(hours=hours)
+        
+        # Şu andan itibaren 24 saat içinde süresi dolacak VE notified_expiry=0 olan kullanıcılar
+        rows = conn.execute("""
+            SELECT user_id, plan, expiry_date FROM users 
+            WHERE expiry_date > ? AND expiry_date <= ? AND notified_expiry = 0 AND plan != 'admin'
+        """, (str(now), str(future))).fetchall()
+        conn.close()
+        
+        return [{"user_id": r[0], "plan": r[1], "expiry_date": r[2]} for r in rows]
+
+    def get_newly_expired_users(self):
+        """Süresi yeni dolmuş VE henüz 'süre doldu' bildirimi almamış kullanıcılar.
+        notified_expiry < 2 olanlar (0 veya 1)
+        """
+        conn = self._get_conn()
+        now = str(datetime.datetime.now())
+        
+        rows = conn.execute("""
+            SELECT user_id, plan, expiry_date FROM users 
+            WHERE expiry_date < ? AND notified_expiry < 2 AND plan != 'admin'
+        """, (now,)).fetchall()
+        conn.close()
+        
+        return [{"user_id": r[0], "plan": r[1], "expiry_date": r[2]} for r in rows]
+
+    def get_all_expired_users(self):
+        """Tüm süresi dolmuş kullanıcıları getirir (tekrarlayan bildirim için)."""
+        conn = self._get_conn()
+        now = str(datetime.datetime.now())
+        
+        rows = conn.execute("""
+            SELECT user_id, plan, expiry_date FROM users 
+            WHERE expiry_date < ? AND plan != 'admin'
+        """, (now,)).fetchall()
+        conn.close()
+        
+        return [{"user_id": r[0], "plan": r[1], "expiry_date": r[2]} for r in rows]
+
+    def mark_user_notified(self, user_id, notification_type):
+        """Kullanıcıya bildirim gönderildiğini işaretle.
+        notification_type: 1=24h uyarısı gönderildi, 2=süre doldu bildirimi gönderildi
+        """
+        with self._lock:
+            conn = self._get_conn()
+            conn.execute("UPDATE users SET notified_expiry = ? WHERE user_id = ?", (notification_type, str(user_id)))
+            conn.commit()
+            conn.close()
+
+    # --- ÖDEME SİSTEMİ ---
+    
+    def create_payment(self, user_id: str, invoice_id: str, amount: float, currency: str, plan_type: str, days: int):
+        """Yeni ödeme kaydı oluşturur (pending durumunda)"""
+        with self._lock:
+            conn = self._get_conn()
+            now = str(datetime.datetime.now())
+            try:
+                conn.execute("""
+                    INSERT INTO payments (user_id, invoice_id, amount, currency, plan_type, days, status, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)
+                """, (str(user_id), invoice_id, amount, currency, plan_type, days, now))
+                conn.commit()
+                return True
+            except Exception as e:
+                print(f"Payment create error: {e}")
+                return False
+            finally:
+                conn.close()
+    
+    def confirm_payment(self, invoice_id: str) -> dict:
+        """
+        Ödemeyi onaylar ve kullanıcının planını aktive eder.
+        Mevcut süreye ekleme yapar (süre uzatma).
+        
+        Returns:
+            dict: {"success": bool, "user_id": str, "new_expiry": str}
+        """
+        with self._lock:
+            conn = self._get_conn()
+            c = conn.cursor()
+            
+            # Ödeme kaydını bul
+            c.execute("SELECT user_id, plan_type, days, status FROM payments WHERE invoice_id = ?", (invoice_id,))
+            row = c.fetchone()
+            
+            if not row:
+                conn.close()
+                return {"success": False, "error": "Fatura bulunamadı"}
+            
+            user_id, plan_type, days, status = row
+            
+            if status == "paid":
+                conn.close()
+                return {"success": False, "error": "Zaten onaylanmış"}
+            
+            # Mevcut süreyi kontrol et
+            c.execute("SELECT expiry_date FROM users WHERE user_id = ?", (user_id,))
+            user_row = c.fetchone()
+            
+            now = datetime.datetime.now()
+            
+            if user_row and user_row[0]:
+                try:
+                    current_expiry = datetime.datetime.strptime(user_row[0][:19], "%Y-%m-%d %H:%M:%S")
+                    # Mevcut süre hâlâ aktifse, ona ekle
+                    if current_expiry > now:
+                        new_expiry = current_expiry + datetime.timedelta(days=days)
+                    else:
+                        new_expiry = now + datetime.timedelta(days=days)
+                except:
+                    new_expiry = now + datetime.timedelta(days=days)
+            else:
+                new_expiry = now + datetime.timedelta(days=days)
+            
+            # Kullanıcı planını güncelle
+            c.execute("""
+                INSERT OR REPLACE INTO users (user_id, plan, start_date, expiry_date, notified_expiry, ultra_enabled)
+                VALUES (?, ?, ?, ?, 0, 1)
+            """, (user_id, plan_type, str(now), str(new_expiry)))
+            
+            # Ödeme durumunu güncelle
+            c.execute("UPDATE payments SET status = 'paid', paid_at = ? WHERE invoice_id = ?", (str(now), invoice_id))
+            
+            conn.commit()
+            conn.close()
+            
+            return {
+                "success": True,
+                "user_id": user_id,
+                "plan": plan_type,
+                "days": days,
+                "new_expiry": str(new_expiry)
+            }
+    
+    def get_payment_history(self, user_id: str) -> list:
+        """Kullanıcının ödeme geçmişini getirir"""
+        conn = self._get_conn()
+        rows = conn.execute("""
+            SELECT invoice_id, amount, currency, plan_type, days, status, created_at, paid_at 
+            FROM payments WHERE user_id = ? ORDER BY created_at DESC
+        """, (str(user_id),)).fetchall()
+        conn.close()
+        
+        return [{
+            "invoice_id": r[0], "amount": r[1], "currency": r[2], 
+            "plan": r[3], "days": r[4], "status": r[5],
+            "created_at": r[6], "paid_at": r[7]
+        } for r in rows]
+    
+    def get_pending_payment(self, user_id: str) -> dict:
+        """Kullanıcının bekleyen ödemesini getirir (varsa)"""
+        conn = self._get_conn()
+        row = conn.execute("""
+            SELECT invoice_id, amount, currency, plan_type, days, created_at 
+            FROM payments WHERE user_id = ? AND status = 'pending' 
+            ORDER BY created_at DESC LIMIT 1
+        """, (str(user_id),)).fetchone()
+        conn.close()
+        
+        if row:
+            return {
+                "invoice_id": row[0], "amount": row[1], "currency": row[2],
+                "plan": row[3], "days": row[4], "created_at": row[5]
+            }
+        return None
+
     def get_domain_info(self, domain):
         conn = self._get_conn(); c = conn.cursor(); c.execute("SELECT status, last_check FROM status WHERE domain=?", (domain,)); row = c.fetchone(); conn.close()
         return (row[0], row[1]) if row else ("YENI", "--:--:--")
@@ -153,6 +349,40 @@ class Database:
     def delete_webhook(self, wid: int):
         with self._lock:
             conn = self._get_conn(); conn.execute("DELETE FROM webhooks WHERE id=?", (wid,)); conn.commit(); conn.close()
+
+    def get_expiring_webhooks(self, hours=24):
+        """24 saat içinde süresi dolacak webhookları getirir."""
+        conn = self._get_conn()
+        now = datetime.datetime.now()
+        future = now + datetime.timedelta(hours=hours)
+        
+        rows = conn.execute("""
+            SELECT id, user_id, name, url, expiry_date FROM webhooks 
+            WHERE active=1 AND expiry_date > ? AND expiry_date <= ?
+        """, (str(now), str(future))).fetchall()
+        conn.close()
+        
+        return [{"id": r[0], "user_id": r[1], "name": r[2], "url": r[3], "expiry_date": r[4]} for r in rows]
+
+    def get_expired_webhooks(self):
+        """Süresi dolmuş aktif webhookları getirir."""
+        conn = self._get_conn()
+        now = str(datetime.datetime.now())
+        
+        rows = conn.execute("""
+            SELECT id, user_id, name, url, expiry_date FROM webhooks 
+            WHERE active=1 AND expiry_date < ?
+        """, (now,)).fetchall()
+        conn.close()
+        
+        return [{"id": r[0], "user_id": r[1], "name": r[2], "url": r[3], "expiry_date": r[4]} for r in rows]
+
+    def deactivate_webhook(self, wid: int):
+        """Webhook'u pasif yap."""
+        with self._lock:
+            conn = self._get_conn()
+            conn.execute("UPDATE webhooks SET active=0 WHERE id=?", (wid,))
+            conn.commit(); conn.close()
 
     def get_active_webhooks_for_domain(self, uid, dom):
         conn = self._get_conn()
@@ -228,8 +458,22 @@ class Database:
         return [r[0] for r in rows]
 
     def get_all_users_domains(self):
-        conn = self._get_conn(); u_rows = conn.execute("SELECT user_id, domain FROM domains").fetchall()
-        w_rows = conn.execute("SELECT user_id, domains FROM webhooks WHERE active=1 AND expiry_date > ?", (str(datetime.datetime.now()),)).fetchall(); conn.close()
+        """Tüm aktif kullanıcıların domainlerini getirir.
+        Sadece süresi dolmamış kullanıcıların domainlerini döndürür (kaynak tasarrufu).
+        """
+        conn = self._get_conn()
+        now = str(datetime.datetime.now())
+        
+        # Sadece süresi dolmamış kullanıcıların domainlerini al
+        u_rows = conn.execute("""
+            SELECT d.user_id, d.domain FROM domains d
+            INNER JOIN users u ON d.user_id = u.user_id
+            WHERE u.expiry_date > ? OR u.plan = 'admin'
+        """, (now,)).fetchall()
+        
+        w_rows = conn.execute("SELECT user_id, domains FROM webhooks WHERE active=1 AND expiry_date > ?", (now,)).fetchall()
+        conn.close()
+        
         res = {}
         for u, d in u_rows:
             if u not in res: res[u] = []
@@ -371,3 +615,124 @@ class Database:
 
         conn.close()
         return "\n".join(output)
+
+    # --- REFERANS SİSTEMİ ---
+    
+    def add_referral(self, referrer_id: str, referred_id: str) -> bool:
+        """Yeni referans kaydı ekle"""
+        with self._lock:
+            conn = self._get_conn()
+            try:
+                conn.execute(
+                    "INSERT INTO referrals (referrer_id, referred_id, status, created_at) VALUES (?, ?, 'pending', ?)",
+                    (str(referrer_id), str(referred_id), str(datetime.datetime.now()))
+                )
+                conn.commit()
+                return True
+            except:
+                return False  # Zaten kayıtlı
+            finally:
+                conn.close()
+    
+    def get_referrer(self, referred_id: str) -> str:
+        """Kullanıcıyı davet eden kişiyi bul"""
+        conn = self._get_conn()
+        row = conn.execute(
+            "SELECT referrer_id FROM referrals WHERE referred_id = ?",
+            (str(referred_id),)
+        ).fetchone()
+        conn.close()
+        return row[0] if row else None
+    
+    def process_referral_reward(self, referred_id: str, bonus_days: int = 7) -> dict:
+        """Referans ödülünü işle - davet edene bonus gün ekle"""
+        with self._lock:
+            conn = self._get_conn()
+            c = conn.cursor()
+            
+            # Referans kaydını bul
+            row = c.execute(
+                "SELECT referrer_id, status FROM referrals WHERE referred_id = ?",
+                (str(referred_id),)
+            ).fetchone()
+            
+            if not row:
+                conn.close()
+                return {"success": False, "error": "Referans kaydı bulunamadı"}
+            
+            referrer_id, status = row
+            
+            if status == "completed":
+                conn.close()
+                return {"success": False, "error": "Ödül zaten verildi"}
+            
+            # Davet edenin süresini uzat
+            user_row = c.execute(
+                "SELECT expiry_date FROM users WHERE user_id = ?",
+                (referrer_id,)
+            ).fetchone()
+            
+            if user_row and user_row[0]:
+                try:
+                    current_expiry = datetime.datetime.strptime(user_row[0][:19], "%Y-%m-%d %H:%M:%S")
+                    now = datetime.datetime.now()
+                    
+                    if current_expiry > now:
+                        new_expiry = current_expiry + datetime.timedelta(days=bonus_days)
+                    else:
+                        new_expiry = now + datetime.timedelta(days=bonus_days)
+                    
+                    c.execute(
+                        "UPDATE users SET expiry_date = ? WHERE user_id = ?",
+                        (str(new_expiry), referrer_id)
+                    )
+                except:
+                    conn.close()
+                    return {"success": False, "error": "Tarih işleme hatası"}
+            
+            # Referans kaydını güncelle
+            c.execute(
+                "UPDATE referrals SET status = 'completed', reward_days = ? WHERE referred_id = ?",
+                (bonus_days, str(referred_id))
+            )
+            
+            conn.commit()
+            conn.close()
+            
+            return {
+                "success": True,
+                "referrer_id": referrer_id,
+                "bonus_days": bonus_days
+            }
+    
+    def get_referral_stats(self, user_id: str) -> dict:
+        """Kullanıcının referans istatistiklerini getir"""
+        conn = self._get_conn()
+        
+        # Toplam davet
+        total = conn.execute(
+            "SELECT COUNT(*) FROM referrals WHERE referrer_id = ?",
+            (str(user_id),)
+        ).fetchone()[0]
+        
+        # Ödeme yapanlar (completed)
+        completed = conn.execute(
+            "SELECT COUNT(*) FROM referrals WHERE referrer_id = ? AND status = 'completed'",
+            (str(user_id),)
+        ).fetchone()[0]
+        
+        # Toplam kazanılan gün
+        total_days = conn.execute(
+            "SELECT COALESCE(SUM(reward_days), 0) FROM referrals WHERE referrer_id = ? AND status = 'completed'",
+            (str(user_id),)
+        ).fetchone()[0]
+        
+        conn.close()
+        
+        return {
+            "total_referrals": total,
+            "completed": completed,
+            "pending": total - completed,
+            "total_bonus_days": total_days
+        }
+

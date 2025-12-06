@@ -97,6 +97,7 @@ def _show_account_menu(cid, message_obj=None, is_edit=False):
 
 def _show_webhook_list(chat_id, message_id=None):
     """Webhook listesini gösterir"""
+    import datetime
     try:
         webhooks = db.get_webhooks(ADMIN_ID)
         markup = types.InlineKeyboardMarkup(row_width=1)
@@ -105,10 +106,27 @@ def _show_webhook_list(chat_id, message_id=None):
             text = "📂 **Webhook Listesi**\n\nHenüz ekli bir webhook yok."
         else:
             text = "📂 **Webhook Listesi**\nDüzenlemek için seçiniz:"
+            now = datetime.datetime.now()
             for wh in webhooks:
-                status_icon = "🟢" if wh["active"] else "🔴"
+                # Süre kontrolü
+                try:
+                    expiry = datetime.datetime.strptime(wh["expiry_date"][:19], "%Y-%m-%d %H:%M:%S")
+                    is_expired = expiry < now
+                except:
+                    is_expired = False
+                
+                if is_expired:
+                    status_icon = "⏰"  # Süresi dolmuş
+                    status_text = " (Süresi Doldu)"
+                elif wh["active"]:
+                    status_icon = "🟢"
+                    status_text = ""
+                else:
+                    status_icon = "🔴"
+                    status_text = ""
+                
                 domain_count = len(wh['domains'])
-                btn_text = f"{status_icon} {wh['name']} ({domain_count} Domain)"
+                btn_text = f"{status_icon} {wh['name']} ({domain_count} Domain){status_text}"
                 markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"wh_detail_{wh['id']}"))
         
         markup.add(types.InlineKeyboardButton("➕ Yeni Webhook Ekle", callback_data="wh_add_new"))
@@ -127,6 +145,13 @@ def cmd_start(message):
     cid = message.chat.id
     name = message.from_user.first_name
     
+    # Referans kontrolü (/start ref_123456)
+    referrer_id = None
+    if message.text and len(message.text.split()) > 1:
+        param = message.text.split()[1]
+        if param.startswith("ref_"):
+            referrer_id = param.replace("ref_", "")
+    
     conn = db._get_conn()
     c = conn.cursor()
     c.execute("SELECT * FROM users WHERE user_id=?", (str(cid),))
@@ -136,6 +161,11 @@ def cmd_start(message):
     if existing:
         bot.send_message(cid, tg_conf.MESSAGES["welcome_old"].format(name=name), reply_markup=tg_conf.create_main_menu())
     else:
+        # Referans kaydı (varsa)
+        if referrer_id and referrer_id != str(cid):
+            if db.add_referral(referrer_id, cid):
+                bot.send_message(cid, "🎁 **Referans Bonusu!**\nBir kullanıcı tarafından davet edildiniz.\nTrial süreniz **72 saate** uzatıldı!", parse_mode="Markdown")
+        
         # Hafta sonu kontrolü
         is_weekend = datetime.datetime.now().weekday() >= 5
         
@@ -144,7 +174,18 @@ def cmd_start(message):
                              parse_mode="Markdown", reply_markup=tg_conf.create_trial_choice_menu(is_weekend))
         else:
             # Hafta içi direkt başlat
+            # Referans ile geldiyse 72 saat, normal ise 48 saat
+            trial_hours = 72 if referrer_id else 48
             succ, st, ex = db.register_user_scheduled(cid, False)
+            
+            # Referans bonusu için süre uzat
+            if succ and referrer_id:
+                db._get_conn().execute(
+                    "UPDATE users SET expiry_date = ? WHERE user_id = ?",
+                    (str(st + datetime.timedelta(hours=trial_hours)), str(cid))
+                )
+                ex = st + datetime.timedelta(hours=trial_hours)
+            
             if succ:
                 welcome_msg = tg_conf.MESSAGES["welcome_new"].format(name=name)
                 start_msg = tg_conf.MESSAGES["trial_started_now"].format(
@@ -211,6 +252,155 @@ def cmd_support(message):
     markup.add(types.InlineKeyboardButton("💬 Destek / İletişim", url=tg_conf.SUPPORT_URL))
     bot.send_message(message.chat.id, "📞 İletişim için butona tıklayın:", reply_markup=markup)
 
+@bot.message_handler(commands=['referans', 'ref', 'davet'])
+def cmd_referans(message):
+    """Referans sistemi - kullanıcının referans linkini ve istatistiklerini gösterir"""
+    cid = message.chat.id
+    
+    # Bot kullanıcı adını al
+    try:
+        bot_info = bot.get_me()
+        bot_username = bot_info.username
+    except:
+        bot_username = "BTKBot"
+    
+    # Referans linki
+    ref_link = f"https://t.me/{bot_username}?start=ref_{cid}"
+    
+    # İstatistikler
+    stats = db.get_referral_stats(cid)
+    
+    text = (
+        "🎁 **Referans Programı**\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        f"📊 **İstatistikleriniz:**\n"
+        f"├ Davet Ettiğiniz: {stats['total_referrals']} kişi\n"
+        f"├ Ödeme Yapan: {stats['completed']} kişi\n"
+        f"├ Bekleyen: {stats['pending']} kişi\n"
+        f"└ Kazanılan Süre: **+{stats['total_bonus_days']} gün**\n\n"
+        "🔗 **Referans Linkiniz:**\n"
+        f"`{ref_link}`\n\n"
+        "📌 **Nasıl Çalışır?**\n"
+        "• Birisi linkinizle katılır → **+24 saat** trial\n"
+        "• Ödeme yaparsa → Size **+7 gün** bonus!"
+    )
+    
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📤 Linki Paylaş", url=f"https://t.me/share/url?url={ref_link}&text=BTK%20Takip%20Botu%20-%20Domainlerini%20anlik%20takip%20et!"))
+    markup.add(types.InlineKeyboardButton("🔙 Ana Menü", callback_data="main_menu"))
+    
+    bot.send_message(cid, text, parse_mode="Markdown", reply_markup=markup)
+
+# --- SATIN ALMA SİSTEMİ ---
+
+@bot.message_handler(commands=['satin_al', 'buy', 'premium'])
+def cmd_buy(message):
+    """Paket satın alma menüsü - Tek paket, süre seçimi"""
+    from config import SUBSCRIPTION_DURATIONS
+    
+    cid = message.chat.id
+    
+    text = (
+        "💎 **BTK İzleme Hizmeti**\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
+        "📊 **Özellikler:**\n"
+        "• Anlık tarama\n"
+        "• Anlık Telegram bildirimleri\n"
+        "• Manuel sorgu\n"
+        "• 6+ ay pakette: Slack/Teams entegrasyon\n\n"
+        "👇 **Süre seçin:**\n\n"
+    )
+    
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    
+    for key, dur in SUBSCRIPTION_DURATIONS.items():
+        # Entegrasyon bilgisi
+        integration_info = " + 🔗 Entegrasyon" if "integration" in dur["features"] else ""
+        
+        btn_text = f"💰 {dur['label']} - ${dur['price']} ({dur['domains']} Domain){integration_info}"
+        markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"buy_{key}"))
+        
+        # Aylık fiyat hesapla
+        monthly = round(dur["price"] / (dur["days"] / 30))
+        text += f"**{dur['label']}** - ${dur['price']} (${monthly}/ay)\n"
+        text += f"├ 📊 {dur['domains']} Domain\n"
+        if "integration" in dur["features"]:
+            text += f"└ 🔗 Slack/Teams entegrasyon\n\n"
+        else:
+            text += f"└ 🔔 Bildirimler\n\n"
+    
+    markup.add(types.InlineKeyboardButton("💬 Farklı Coin ile Ödeme", url=tg_conf.SUPPORT_URL))
+    markup.add(types.InlineKeyboardButton("🔙 Ana Menü", callback_data="main_menu"))
+    
+    bot.send_message(cid, text, parse_mode="Markdown", reply_markup=markup)
+
+# --- TxID DOĞRULAMA HANDLER ---
+
+@bot.message_handler(func=lambda m: m.text and len(m.text) == 64 and all(c in '0123456789abcdefABCDEF' for c in m.text))
+def handle_txid(message):
+    """TxID formatındaki mesajları yakala ve doğrula"""
+    from crypto_payment import verify_txid
+    
+    cid = message.chat.id
+    txid = message.text.strip()
+    
+    # Bekleyen ödeme var mı?
+    pending = db.get_pending_payment(str(cid))
+    
+    if not pending:
+        bot.reply_to(message, "⚠️ Bekleyen ödeme bulunamadı.\n\nÖnce /satin_al ile paket seçin.")
+        return
+    
+    bot.reply_to(message, "🔍 TxID doğrulanıyor, lütfen bekleyin...")
+    
+    # TxID'yi doğrula
+    result = verify_txid(txid, pending["amount"])
+    
+    if result["valid"]:
+        # Ödemeyi onayla
+        confirm_result = db.confirm_payment(pending["invoice_id"])
+        
+        if confirm_result["success"]:
+            text = (
+                f"🎉 **Ödeme Başarılı!**\n\n"
+                f"📦 Paket: **{confirm_result['plan'].upper()}**\n"
+                f"📅 Bitiş: {confirm_result['new_expiry'][:10]}\n"
+                f"💰 Tutar: ${result['amount']}\n"
+                f"🔗 TxID: `{txid[:16]}...`\n\n"
+                f"Hemen domain eklemeye başlayabilirsiniz! 👇"
+            )
+            bot.send_message(cid, text, parse_mode="Markdown", reply_markup=tg_conf.create_main_menu())
+            
+            # Admin'e bildir
+            admin_msg = (
+                f"💰 **Yeni Ödeme (TxID Onaylı)!**\n"
+                f"User: `{cid}`\n"
+                f"Plan: {confirm_result['plan']}\n"
+                f"Tutar: ${result['amount']}\n"
+                f"TxID: `{txid[:24]}...`"
+            )
+            try: bot.send_message(ADMIN_ID, admin_msg, parse_mode="Markdown")
+            except: pass
+            
+            # Referans ödülü işle
+            ref_result = db.process_referral_reward(str(cid), bonus_days=7)
+            if ref_result["success"]:
+                referrer_id = ref_result["referrer_id"]
+                try:
+                    ref_msg = (
+                        f"🎁 **Referans Ödülü!**\n\n"
+                        f"Davet ettiğiniz kullanıcı ödeme yaptı!\n"
+                        f"📅 **+7 gün** bonus süre eklendi."
+                    )
+                    bot.send_message(referrer_id, ref_msg, parse_mode="Markdown")
+                except: pass
+        else:
+            bot.send_message(cid, f"❌ Hata: {confirm_result.get('error', 'Bilinmiyor')}")
+    else:
+        # Doğrulama başarısız
+        error_msg = result.get("error", "Bilinmeyen hata")
+        bot.send_message(cid, f"❌ **Doğrulama Başarısız**\n\n{error_msg}", parse_mode="Markdown")
+
 # --- ADMIN KOMUTLARI ---
 
 @bot.message_handler(commands=['webhooks'])
@@ -252,6 +442,53 @@ def cmd_db_export(message):
         bot.send_message(message.chat.id, "✅ Export Admin Kanalı'na gönderildi.")
     except Exception as e:
         bot.send_message(message.chat.id, f"❌ Hata: {e}")
+
+@bot.message_handler(commands=['odeme_onayla'])
+def cmd_confirm_payment(message):
+    """Admin: Bekleyen ödemeyi onayla - /odeme_onayla <USER_ID>"""
+    if str(message.chat.id) != str(ADMIN_ID): return
+    try:
+        args = message.text.split()
+        if len(args) < 2:
+            bot.reply_to(message, "❌ Kullanım: `/odeme_onayla <USER_ID>`", parse_mode="Markdown")
+            return
+        
+        target_id = args[1]
+        
+        # Bekleyen ödemeyi bul
+        pending = db.get_pending_payment(target_id)
+        
+        if not pending:
+            bot.reply_to(message, f"⚠️ `{target_id}` için bekleyen ödeme bulunamadı.", parse_mode="Markdown")
+            return
+        
+        # Ödemeyi onayla
+        result = db.confirm_payment(pending["invoice_id"])
+        
+        if result["success"]:
+            bot.reply_to(message, 
+                f"✅ **Ödeme Onaylandı!**\n"
+                f"User: `{target_id}`\n"
+                f"Plan: {result['plan']}\n"
+                f"Süre: {result['days']} gün\n"
+                f"Bitiş: {result['new_expiry'][:10]}", 
+                parse_mode="Markdown"
+            )
+            
+            # Kullanıcıya bildir
+            try:
+                user_msg = (
+                    f"🎉 **Ödeme Onaylandı!**\n\n"
+                    f"📦 Paket: **{result['plan'].upper()}**\n"
+                    f"📅 Bitiş: {result['new_expiry'][:10]}\n\n"
+                    f"Hemen domain eklemeye başlayabilirsiniz! 👇"
+                )
+                bot.send_message(target_id, user_msg, parse_mode="Markdown", reply_markup=tg_conf.create_main_menu())
+            except: pass
+        else:
+            bot.reply_to(message, f"❌ Hata: {result.get('error', 'Bilinmeyen hata')}")
+    except Exception as e:
+        bot.reply_to(message, f"❌ Hata: {e}")
 
 @bot.message_handler(commands=['premium_yap'])
 def cmd_premium(message):
@@ -309,24 +546,72 @@ def handle_webhook_callbacks(call):
             bot.send_message(cid, "Komut: `/webhook_ekle <isim> <url> <domainler> <gün>`", parse_mode="Markdown")
 
         elif data.startswith("wh_detail_"):
+            import datetime
             wid = int(data.split("_")[-1])
             wh = db.get_webhook(wid)
             if not wh: 
                 bot.answer_callback_query(call.id, "Bulunamadı")
                 return
             
-            status = "✅ Aktif" if wh['active'] else "❌ Pasif"
-            domains_disp = "TÜMÜ (*)" if "*" in wh['domains'] else f"{len(wh['domains'])} Adet"
+            # Süre kontrolü
+            now = datetime.datetime.now()
+            try:
+                expiry = datetime.datetime.strptime(wh["expiry_date"][:19], "%Y-%m-%d %H:%M:%S")
+                is_expired = expiry < now
+            except:
+                is_expired = False
             
-            text = (f"⚙️ **Webhook Detayı**\n🏷 İsim: {wh['name']}\n🔗 URL: `{wh['url'][:40]}...`\n"
-                    f"🌐 Siteler: {domains_disp}\n📅 Bitiş: {wh['expiry_date'][:10]}\n📊 Durum: {status}")
+            if is_expired:
+                status = "⏰ Süresi Doldu"
+            elif wh['active']:
+                status = "✅ Aktif"
+            else:
+                status = "❌ Pasif"
+            
+            # Domain listesi
+            if "*" in wh['domains']:
+                domains_disp = "TÜMÜ (*)"
+            elif len(wh['domains']) <= 5:
+                domains_disp = ", ".join(wh['domains'])
+            else:
+                domains_disp = ", ".join(wh['domains'][:5]) + f" +{len(wh['domains'])-5}"
+            
+            text = (f"⚙️ **Webhook Detayı**\n"
+                    f"🏷 İsim: {wh['name']}\n"
+                    f"🔗 URL: `{wh['url'][:40]}...`\n"
+                    f"🌐 Siteler: {domains_disp}\n"
+                    f"📅 Bitiş: {wh['expiry_date'][:10]}\n"
+                    f"📊 Durum: {status}")
             
             markup = types.InlineKeyboardMarkup(row_width=2)
-            toggle_txt = "Durdur ⏸️" if wh['active'] else "Başlat ▶️"
-            markup.add(types.InlineKeyboardButton(toggle_txt, callback_data=f"wh_toggle_{wid}"),
-                       types.InlineKeyboardButton("🗑️ Sil", callback_data=f"wh_ask_del_{wid}"))
+            
+            if is_expired:
+                # Süresi dolmuş - sadece yenile butonu
+                markup.add(types.InlineKeyboardButton("🔄 Süreyi Yenile", callback_data=f"wh_renew_{wid}"),
+                           types.InlineKeyboardButton("🗑️ Sil", callback_data=f"wh_ask_del_{wid}"))
+            else:
+                toggle_txt = "Durdur ⏸️" if wh['active'] else "Başlat ▶️"
+                markup.add(types.InlineKeyboardButton(toggle_txt, callback_data=f"wh_toggle_{wid}"),
+                           types.InlineKeyboardButton("🗑️ Sil", callback_data=f"wh_ask_del_{wid}"))
+            
             markup.add(types.InlineKeyboardButton("🔙 Listeye Dön", callback_data="wh_list"))
             bot.edit_message_text(text, cid, mid, reply_markup=markup, parse_mode="Markdown")
+
+        elif data.startswith("wh_renew_"):
+            wid = int(data.split("_")[-1])
+            wh = db.get_webhook(wid)
+            if wh:
+                bot.answer_callback_query(call.id, "Yenileme talimatları gönderildi")
+                bot.send_message(cid, 
+                    f"🔄 **Webhook Yenileme**\n\n"
+                    f"Webhook: `{wh['name']}`\n\n"
+                    f"Yenilemek için aşağıdaki komutu kullanın:\n"
+                    f"`/webhook_ekle {wh['name']} {wh['url']} {'*' if '*' in wh['domains'] else ','.join(wh['domains'])} 365`\n\n"
+                    f"Ardından eski webhook'u silebilirsiniz.",
+                    parse_mode="Markdown"
+                )
+            else:
+                bot.answer_callback_query(call.id, "Bulunamadı")
 
         elif data.startswith("wh_toggle_"):
             wid = int(data.split("_")[-1])
@@ -361,6 +646,191 @@ def handle_callback(call):
     import scan_engine
     
     try:
+        # --- PAKET TİPİ SEÇİMİ ---
+        if data.startswith("tier_"):
+            tier_key = data.replace("tier_", "")
+            from config import SUBSCRIPTION_TIERS, SUBSCRIPTION_DURATIONS, get_plan_price
+            
+            tier = SUBSCRIPTION_TIERS.get(tier_key)
+            if not tier:
+                bot.answer_callback_query(call.id, "Geçersiz paket!", show_alert=True)
+                return
+            
+            bot.answer_callback_query(call.id)
+            
+            text = (
+                f"⏱️ **{tier['name']} - Süre Seçin**\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"📊 {tier['domains']} Domain\n\n"
+            )
+            
+            markup = types.InlineKeyboardMarkup(row_width=2)
+            buttons = []
+            
+            for dur_key, dur in SUBSCRIPTION_DURATIONS.items():
+                plan = get_plan_price(tier_key, dur_key)
+                btn_text = f"{dur['label']} - ${plan['price']}"
+                buttons.append(types.InlineKeyboardButton(btn_text, callback_data=f"buy_{tier_key}_{dur_key}"))
+            
+            # 2'li satırlar
+            for i in range(0, len(buttons), 2):
+                markup.row(*buttons[i:i+2])
+            
+            markup.add(types.InlineKeyboardButton("🔙 Paketler", callback_data="back_to_plans"))
+            
+            try:
+                bot.edit_message_text(text, cid, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+            except:
+                bot.send_message(cid, text, parse_mode="Markdown", reply_markup=markup)
+            return
+        
+        elif data == "back_to_plans":
+            # /satin_al menüsüne geri dön
+            from config import SUBSCRIPTION_TIERS
+            
+            text = "💎 **Abonelik Paketleri**\n━━━━━━━━━━━━━━━━━━━━\n\n"
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            
+            for key, tier in SUBSCRIPTION_TIERS.items():
+                btn_text = f"💰 {tier['name']} - ${tier['base_price']}/ay ({tier['domains']} Domain)"
+                markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"tier_{key}"))
+                text += f"**{tier['name']}** - ${tier['base_price']}/ay\n└ 📊 {tier['domains']} Domain\n\n"
+            
+            text += "👇 Paket tipini seçin:"
+            markup.add(types.InlineKeyboardButton("🔙 Ana Menü", callback_data="main_menu"))
+            
+            try:
+                bot.edit_message_text(text, cid, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+            except:
+                pass
+            return
+        
+        # --- ÖDEME BİLGİLERİ (yeni format: buy_1m, buy_3m, etc.) ---
+        if data.startswith("buy_"):
+            dur_key = data.replace("buy_", "")  # Sadece süre: 1m, 3m, 6m, 12m
+            
+            from config import get_plan_price, USDT_WALLET_ADDRESS
+            from crypto_payment import get_payment_info
+            import time
+            
+            plan = get_plan_price(dur_key)
+            if not plan:
+                bot.answer_callback_query(call.id, "Geçersiz süre!", show_alert=True)
+                return
+            
+            # Cüzdan kontrolü
+            if USDT_WALLET_ADDRESS == "YOUR_TRC20_WALLET_ADDRESS_HERE":
+                bot.answer_callback_query(call.id, "Ödeme sistemi yapılandırılmamış!", show_alert=True)
+                bot.send_message(cid, "⚠️ Ödeme sistemi henüz aktif değil.\nLütfen /destek ile iletişime geçin.")
+                return
+            
+            bot.answer_callback_query(call.id, "Ödeme bilgileri hazırlanıyor...")
+            
+            # Ödeme bilgilerini al
+            payment_info = get_payment_info(f"standard_{dur_key}")
+            
+            if payment_info:
+                # Database'e kaydet
+                invoice_id = f"{cid}_{int(time.time())}"
+                db.create_payment(
+                    str(cid), 
+                    invoice_id, 
+                    payment_info["amount"], 
+                    "USDT", 
+                    f"standard_{dur_key}", 
+                    plan["days"]
+                )
+                
+                # Webhook bilgisi
+                webhook_info = "\n🔗 **Webhook:** Slack/Teams entegrasyonu dahil" if "webhook" in plan["features"] else ""
+                
+                text = (
+                    f"💳 **Ödeme Bilgileri**\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n\n"
+                    f"📦 Paket: **{plan['name']}**\n"
+                    f"⏱️ Süre: {plan['days']} Gün\n"
+                    f"📊 Domain: {plan['domains']} adet{webhook_info}\n\n"
+                    f"💰 **Gönderilecek Tutar:**\n"
+                    f"`{payment_info['amount']}` USDT\n\n"
+                    f"📍 **Cüzdan Adresi (TRC20):**\n"
+                    f"`{USDT_WALLET_ADDRESS}`\n\n"
+                    f"✅ **Ödeme Sonrası:**\n"
+                    f"Transfer **TxID**'nizi bu sohbete gönderin.\n"
+                    f"Otomatik doğrulama sonrası paketiniz aktif olur."
+                )
+                
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton("🔙 Geri", callback_data="main_menu"))
+                
+                bot.send_message(cid, text, parse_mode="Markdown", reply_markup=markup)
+            else:
+                bot.send_message(cid, "❌ Ödeme bilgileri oluşturulamadı.")
+            return
+
+        if data == "satin_al":
+            # Satın alma menüsünü göster
+            from config import SUBSCRIPTION_DURATIONS
+            
+            text = (
+                "💎 **BTK İzleme Hizmeti**\n"
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+                "📊 **Özellikler:**\n"
+                "• Anlık tarama\n"
+                "• Anlık Telegram bildirimleri\n"
+                "• Manuel sorgu\n"
+                "• 6+ ay pakette: Slack/Teams entegrasyon\n\n"
+                "👇 **Süre seçin:**\n"
+            )
+            
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            for key, dur in SUBSCRIPTION_DURATIONS.items():
+                integration_info = " + 🔗 Entegrasyon" if "integration" in dur["features"] else ""
+                btn_text = f"💰 {dur['label']} - ${dur['price']} ({dur['domains']} Domain){integration_info}"
+                markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"buy_{key}"))
+            
+            markup.add(types.InlineKeyboardButton("💬 Farklı Coin ile Ödeme", url=tg_conf.SUPPORT_URL))
+            markup.add(types.InlineKeyboardButton("🔙 Ana Menü", callback_data="main_menu"))
+            
+            try: bot.edit_message_text(text, cid, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+            except: bot.send_message(cid, text, parse_mode="Markdown", reply_markup=markup)
+            return
+
+        if data == "referans":
+            # Bot kullanıcı adını al
+            try:
+                bot_info = bot.get_me()
+                bot_username = bot_info.username
+            except:
+                bot_username = "BTKBot"
+            
+            # Referans linki
+            ref_link = f"https://t.me/{bot_username}?start=ref_{cid}"
+            
+            # İstatistikler
+            stats = db.get_referral_stats(cid)
+            
+            text = (
+                "🎁 **Referans Programı**\n"
+                "━━━━━━━━━━━━━━━━━━━━\n\n"
+                f"📊 **İstatistikleriniz:**\n"
+                f"├ Davet Ettiğiniz: {stats['total_referrals']} kişi\n"
+                f"├ Ödeme Yapan: {stats['completed']} kişi\n"
+                f"└ Kazanılan Süre: **+{stats['total_bonus_days']} gün**\n\n"
+                "🔗 **Referans Linkiniz:**\n"
+                f"`{ref_link}`\n\n"
+                "📌 **Nasıl Çalışır?**\n"
+                "• Birisi linkinizle katılır → +24 saat trial\n"
+                "• Ödeme yaparsa → Size **+7 gün** bonus!"
+            )
+            
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("📤 Linki Paylaş", url=f"https://t.me/share/url?url={ref_link}&text=BTK%20Takip%20Botu"))
+            markup.add(types.InlineKeyboardButton("🔙 Ana Menü", callback_data="main_menu"))
+            
+            try: bot.edit_message_text(text, cid, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
+            except: bot.send_message(cid, text, parse_mode="Markdown", reply_markup=markup)
+            return
+
         if data == "main_menu":
             try: bot.edit_message_text("📋 **Ana Menü:**", cid, call.message.message_id, reply_markup=tg_conf.create_main_menu(), parse_mode="Markdown")
             except: pass
@@ -460,7 +930,16 @@ def handle_text(m):
         added = []
         potential_domains = m.text.replace(',', ' ').split()
         for d in potential_domains:
+            # Domain temizleme
             clean_d = d.strip().lower()
+            # Protokol kaldır
+            clean_d = clean_d.replace("https://", "").replace("http://", "")
+            # www. kaldır
+            if clean_d.startswith("www."):
+                clean_d = clean_d[4:]
+            # Trailing slash ve path kaldır
+            clean_d = clean_d.split("/")[0]
+            
             if len(clean_d) > 3 and "." in clean_d and not clean_d.startswith("/"):
                 if cur < limit:
                     if db.ekle_domain(cid, clean_d): added.append(clean_d); cur += 1

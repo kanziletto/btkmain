@@ -138,6 +138,12 @@ def notification_worker():
                  if os.path.exists(task["path"]):
                     with open(task["path"], 'rb') as f: tg.send_document(task["chat_id"], f, caption=task["caption"])
             
+            elif t_type == "telegram_text_with_button":
+                from telebot import types
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton(task["button_text"], callback_data=task["button_callback"]))
+                tg.bot.send_message(task["chat_id"], task["text"], reply_markup=markup, parse_mode="Markdown")
+            
             elif t_type == "telegram_chart":
                  tg.send_photo(task["chat_id"], task["chart"], caption=task["caption"])
 
@@ -272,47 +278,57 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
     global_switch = None
     ultra_ss_active = db.get_setting("ultra_screenshots")
 
-    for user_id in target_users:
-        u_data = db.get_user_data(user_id)
-        if not db.check_user_access(user_id)["access"]: continue
+    # HATA ve BİLİNMİYOR durumlarında sadece admin kanalına bildir
+    if yeni in ["HATA", "BİLİNMİYOR"]:
+        if degisim:  # Sadece durum değiştiğinde
+            admin_msg = f"⚠️ **Tarama Sorunu**\n🌍 `{domain}`\n📊 Durum: {yeni}\n📝 Detay: {sonuc.detay if hasattr(sonuc, 'detay') else '-'}"
+            notification_queue.put({"type": "telegram_text", "chat_id": ADMIN_CHANNEL_ID, "text": admin_msg})
+        # Kullanıcılara ve webhook'lara bildirim gönderme
+    else:
+        # Normal akış (TEMİZ ve ENGELLİ için)
+        is_weekend = datetime.datetime.now().weekday() >= 5  # Cumartesi=5, Pazar=6
         
-        user_wants_ultra_ss = u_data.get("ultra_enabled", True)
-        is_ultra = (u_data.get("plan") == "ultra" and yeni == "TEMİZ" and local_image_path and ultra_ss_active and user_wants_ultra_ss)
-
-        # BİLDİRİM ŞARTI: Değişim VEYA Engelli Durumu VEYA Ultra Modu
-        # (Spam koruması kaldırıldı: Engelli olduğu sürece bildirim gider)
-        should_notify = degisim or (yeni == "ENGELLİ") or is_ultra
-
-        if should_notify:
-            # 1. Webhook (Resim URL'i ile)
-            queue_webhook(user_id, domain, eski, yeni, image_url, next_domain)
-
-            # 2. Telegram
-            if is_ultra:
-                text = f"🛡️ **ULTRA KONTROL**\n🌍 `{domain}`\n✅ Durum: **TEMİZ**\n🕒 Saat: {datetime.datetime.now().strftime('%H:%M:%S')}"
-            else:
-                header = tg_conf.MESSAGES["report_header_change"] if degisim else tg_conf.MESSAGES["report_header_banned"]
-                if yeni == "ENGELLİ" and next_domain:
-                     text = f"{header}\n🚫 *{domain}* engellendi.\n👉 Lütfen *{next_domain}* adresine geçiniz."
-                elif yeni == "ENGELLİ":
-                     text = f"{header}\n🚫 *{domain}* engellendi."
-                else:
-                     text = tg_conf.MESSAGES["report_body"].format(header=header, domain=domain, status=yeni)
+        for user_id in target_users:
+            u_data = db.get_user_data(user_id)
+            if not db.check_user_access(user_id)["access"]: continue
             
-            if local_image_path:
-                notification_queue.put({
-                    "type": "telegram_photo", "chat_id": user_id, 
-                    "path": local_image_path, "caption": text, "delete_after": False
-                })
-            else:
-                notification_queue.put({"type": "telegram_text", "chat_id": user_id, "text": text})
+            user_wants_ultra_ss = u_data.get("ultra_enabled", True)
+            # Ultra SS hafta sonu pasif
+            is_ultra = (u_data.get("plan") == "ultra" and yeni == "TEMİZ" and local_image_path and ultra_ss_active and user_wants_ultra_ss and not is_weekend)
 
-        # 3. Oto-Geçiş
-        if yeni == "ENGELLİ" and db.get_setting("auto_switch") and next_domain:
-            if db.sil_domain(user_id, domain):
-                db.ekle_domain(user_id, next_domain)
-                notification_queue.put({"type": "telegram_text", "chat_id": user_id, "text": f"🔄 **Oto-Geçiş:** `{domain}` ➡️ `{next_domain}`"})
-                global_switch = f"🔄 Geçiş: {domain} ➜ {next_domain}"
+            # BİLDİRİM ŞARTI: Değişim VEYA Engelli Durumu VEYA Ultra Modu
+            should_notify = degisim or (yeni == "ENGELLİ") or is_ultra
+
+            if should_notify:
+                # 1. Webhook (Resim URL'i ile)
+                queue_webhook(user_id, domain, eski, yeni, image_url, next_domain)
+
+                # 2. Telegram
+                if is_ultra:
+                    text = f"🛡️ **ULTRA KONTROL**\n🌍 `{domain}`\n✅ Durum: **TEMİZ**\n🕒 Saat: {datetime.datetime.now().strftime('%H:%M:%S')}"
+                else:
+                    header = tg_conf.MESSAGES["report_header_change"] if degisim else tg_conf.MESSAGES["report_header_banned"]
+                    if yeni == "ENGELLİ" and next_domain:
+                         text = f"{header}\n🚫 *{domain}* engellendi.\n👉 Lütfen *{next_domain}* adresine geçiniz."
+                    elif yeni == "ENGELLİ":
+                         text = f"{header}\n🚫 *{domain}* engellendi."
+                    else:
+                         text = tg_conf.MESSAGES["report_body"].format(header=header, domain=domain, status=yeni)
+                
+                if local_image_path:
+                    notification_queue.put({
+                        "type": "telegram_photo", "chat_id": user_id, 
+                        "path": local_image_path, "caption": text, "delete_after": False
+                    })
+                else:
+                    notification_queue.put({"type": "telegram_text", "chat_id": user_id, "text": text})
+
+            # 3. Oto-Geçiş
+            if yeni == "ENGELLİ" and db.get_setting("auto_switch") and next_domain:
+                if db.sil_domain(user_id, domain):
+                    db.ekle_domain(user_id, next_domain)
+                    notification_queue.put({"type": "telegram_text", "chat_id": user_id, "text": f"🔄 **Oto-Geçiş:** `{domain}` ➡️ `{next_domain}`"})
+                    global_switch = f"🔄 Geçiş: {domain} ➜ {next_domain}"
 
     # Webhook güncellemesi
     if yeni == "ENGELLİ" and next_domain:
@@ -410,6 +426,82 @@ def background_loop():
                         w_txt = (f"📈 **Haftalık Rapor**\n🗓️ Dönem: {weekly_stats['period']}\n━━━━━━━━━━━━━━\n🔢 Toplam: **{weekly_stats['total']}**\n✅ Temiz: {weekly_stats['TEMIZ']}\n🚫 Engelli: {weekly_stats['ENGELLİ']}\n⚠️ Hata: {weekly_stats['HATA']}")
                         notification_queue.put({"type": "telegram_text", "chat_id": ADMIN_CHANNEL_ID, "text": w_txt})
                     last_report = date_str
+
+            # 1.5 ÜYELİK SÜRESİ BİLDİRİMLERİ
+            # 24 saat kala uyarı
+            expiring_users = db.get_expiring_users(hours=24)
+            for user in expiring_users:
+                try:
+                    expiry_formatted = user["expiry_date"][:16] if user["expiry_date"] else "-"
+                    msg = tg_conf.MESSAGES["expiry_warning_24h"].format(expiry=expiry_formatted)
+                    notification_queue.put({
+                        "type": "telegram_text_with_button", 
+                        "chat_id": user["user_id"], 
+                        "text": msg,
+                        "button_text": "💰 Satın Al",
+                        "button_callback": "satin_al"
+                    })
+                    db.mark_user_notified(user["user_id"], 1)  # 1 = 24h uyarısı gönderildi
+                    print(f"[{now.strftime('%H:%M:%S')}] ⏰ 24h uyarısı gönderildi: {user['user_id']}")
+                except Exception as e:
+                    print(f"Expiry warning error: {e}")
+            
+            # Süresi yeni dolanlar (ilk bildirim)
+            expired_users = db.get_newly_expired_users()
+            for user in expired_users:
+                try:
+                    msg = tg_conf.MESSAGES["expiry_ended"]
+                    notification_queue.put({
+                        "type": "telegram_text_with_button", 
+                        "chat_id": user["user_id"], 
+                        "text": msg,
+                        "button_text": "💰 Satın Al",
+                        "button_callback": "satin_al"
+                    })
+                    db.mark_user_notified(user["user_id"], 2)  # 2 = süre doldu bildirimi gönderildi
+                    print(f"[{now.strftime('%H:%M:%S')}] ⛔ Süre doldu bildirimi: {user['user_id']}")
+                except Exception as e:
+                    print(f"Expiry ended error: {e}")
+            
+            # Tekrarlayan bildirim: Saat 09:00 ve 18:00'da tüm süresi dolmuş kullanıcılara
+            if now.hour in [9, 18] and now.minute < 5:
+                all_expired = db.get_all_expired_users()
+                for user in all_expired:
+                    try:
+                        msg = tg_conf.MESSAGES["expiry_ended"]
+                        notification_queue.put({
+                            "type": "telegram_text_with_button", 
+                            "chat_id": user["user_id"], 
+                            "text": msg,
+                            "button_text": "💰 Satın Al",
+                            "button_callback": "satin_al"
+                        })
+                        print(f"[{now.strftime('%H:%M:%S')}] 🔔 Tekrar hatırlatma: {user['user_id']}")
+                    except Exception as e:
+                        pass  # Kullanıcı botu engellemiş olabilir
+
+            # 1.6 WEBHOOK SÜRE BİLDİRİMLERİ
+            # 24 saat kala uyarı
+            expiring_webhooks = db.get_expiring_webhooks(hours=24)
+            for wh in expiring_webhooks:
+                try:
+                    expiry_formatted = wh["expiry_date"][:16] if wh["expiry_date"] else "-"
+                    msg = f"⏰ **Webhook Uyarısı**\n\n`{wh['name']}` webhook'unuzun süresi **24 saat** içinde dolacak!\n📅 Bitiş: {expiry_formatted}"
+                    notification_queue.put({"type": "telegram_text", "chat_id": wh["user_id"], "text": msg})
+                    print(f"[{now.strftime('%H:%M:%S')}] ⏰ Webhook uyarısı: {wh['name']}")
+                except Exception as e:
+                    print(f"Webhook warning error: {e}")
+            
+            # Süresi dolmuş webhookları pasife al ve bildir
+            expired_webhooks = db.get_expired_webhooks()
+            for wh in expired_webhooks:
+                try:
+                    db.deactivate_webhook(wh["id"])
+                    msg = f"⛔ **Webhook Süresi Doldu**\n\n`{wh['name']}` webhook'unuz pasife alındı.\n\nYenilemek için /webhooks yazın."
+                    notification_queue.put({"type": "telegram_text", "chat_id": wh["user_id"], "text": msg})
+                    print(f"[{now.strftime('%H:%M:%S')}] ⛔ Webhook süresi doldu: {wh['name']}")
+                except Exception as e:
+                    print(f"Webhook expired error: {e}")
 
             # 2. ÇALIŞMA SAATİ VE ARALIK BELİRLEME
             current_mins = now.hour * 60 + now.minute

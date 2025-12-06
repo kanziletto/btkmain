@@ -8,13 +8,11 @@ BOT_COMMANDS = [
     types.BotCommand("hesabim", "👤 Hesap bilgileri"),
     types.BotCommand("listem", "📄 Takip edilen domainler"),
     types.BotCommand("ekle", "➕ Domain ekle"),
-    types.BotCommand("sil", "🗑️ Domain sil"),
-    types.BotCommand("sorgu", "🔍 Hızlı sorgu (Premium)"),
+    types.BotCommand("sorgu", "🔍 Manuel sorgu"),
+    types.BotCommand("satin_al", "💰 Paket satın al"),
+    types.BotCommand("referans", "🎁 Davet et ve kazan"),
     types.BotCommand("sss", "❓ Sık sorulan sorular"),
-    types.BotCommand("webhooks", "🔗 Webhook yönetimi (Admin)"),
-    types.BotCommand("webhook_ekle", "➕ Yeni Webhook (Admin)"),
-    types.BotCommand("db_export", "📊 Veritabanı export (Admin)"),
-    types.BotCommand("destek", "💬 Destek ve iletişim")
+    types.BotCommand("destek", "💬 Canlı destek")
 ]
 
 # --- MESAJ METİNLERİ ---
@@ -68,48 +66,34 @@ MESSAGES = {
     "only_premium": "💎 Bu özellik Premium üyelere özeldir. Satın almak için destekle iletişime geçin.",
     
     "faq": (
-        "🤖 **BTK Takip Botu - Detaylı Bilgi & SSS**\n"
-        "━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        "🤖 **BTK Takip Botu - SSS**\n"
+        "━━━━━━━━━━━━━━━━━━━━\n\n"
         
         "**🎯 Bot Ne İşe Yarar?**\n"
-        "Domainlerinizin BTK (TİB) tarafından engellenip engellenmediğini 7/24 otomatik olarak denetler. "
-        "Engelleme anında Telegram ve (varsa) Slack/Discord üzerinden **kanıt fotoğraflı** bildirim gönderir.\n\n"
+        "Domainlerinizi 7/24 otomatik kontrol eder, engelleme anında bildirir.\n\n"
         
-        "**⚡ Özellikler ve Çalışma Prensibi**\n\n"
+        "**⚡ Tarama Sıklığı**\n"
+        "• Hafta içi: Anlık tarama\n"
+        "• Hafta sonu: 1 saatte bir\n\n"
         
-        "**1. Akıllı Tarama Sistemi**\n"
-        "• **Hafta İçi:** Her 5 dakikada bir tarama yapılır.\n"
-        "• **Hafta Sonu:** BTK çalışma düzenine göre 30 dakikada bir kontrol edilir.\n"
-        "• **OCR Teknolojisi:** Sorgu ekranındaki güvenlik kodları (Captcha) yapay zeka ile otomatik çözülür.\n\n"
+        "**🔄 Oto-Geçiş**\n"
+        "site412 engellenince → site413 otomatik eklenir.\n\n"
         
-        "**2. 🔄 Oto-Domain Geçişi (Auto-Switch)**\n"
-        "• Siteniz engellendiğinde (Örn: `site412.com`), bot bunu algılar.\n"
-        "• Domaindeki sayıyı otomatik 1 artırır (Örn: `site413.com`).\n"
-        "• Yeni domaini otomatik takibe alır, eskisini siler.\n"
-        "• **Not:** Domaininizde sayı yoksa bu özellik çalışmaz.\n\n"
+        "**📦 Paketler**\n"
+        "🆓 Deneme: 48 saat, 2 domain\n\n"
+        "💰 Ücretli:\n"
+        "• 1 Ay - $60 (5 domain)\n"
+        "• 3 Ay - $160 (10 domain)\n"
+        "• 6 Ay - $300 (15 domain + Entegrasyon)\n"
+        "• 12 Ay - $500 (25 domain + Entegrasyon)\n\n"
         
-        "**3. 📸 Kanıtlı Bildirimler**\n"
-        "• Engelleme tespit edildiğinde BTK sayfasının ekran görüntüsü alınır.\n"
-        "• Bu görsel size Telegram ve Webhook (Slack) üzerinden iletilir.\n\n"
+        "**🎁 Referans Programı**\n"
+        "Arkadaşını davet et → +7 gün bonus kazan!\n"
+        "/referans ile linkini al.\n\n"
         
-        "**📦 Üyelik Paketleri**\n\n"
-        "🆓 **TRIAL (Deneme)**\n"
-        "• Süre: 48 Saat\n"
-        "• Limit: 2 Domain\n"
-        "• Özellikler: Tam Otomatik Tarama + Bildirim\n\n"
-        
-        "💎 **PREMIUM**\n"
-        "• Süre: Paket Süresince\n"
-        "• Limit: 50 Domain\n"
-        "• Özellikler: Hızlı Tarama + `/sorgu` ile Anlık Manuel Kontrol + Öncelikli Destek\n\n"
-        
-        "**❓ Sıkça Sorulan Sorular**\n\n"
-        "**S: HATA uyarısı alıyorum?**\n"
-        "C: BTK sitesi bazen yoğun olabilir veya Captcha çözülemeyebilir. Sistem otomatik olarak tekrar deneyecektir.\n\n"
-        "**S: Webhook nasıl eklerim?**\n"
-        "C: Webhook entegrasyonu (Slack/Discord) için yönetici ile iletişime geçiniz.\n\n"
-        "**💬 İletişim & Destek:**\n"
-        "👉 /destek komutunu kullanabilirsiniz."
+        "**❓ Sorular**\n"
+        "**HATA uyarısı?** → Sistem otomatik tekrar dener.\n"
+        "**Domain formatı?** → `site.com` (https:// olmadan)"
     ),
     
     "add_prompt": "✍️ **Eklenecek domainleri yazın:**\n(Tekli, virgüllü veya .txt dosyası gönderebilirsiniz)",
@@ -126,7 +110,20 @@ MESSAGES = {
     
     "report_header_change": "🚨 *DURUM DEĞİŞTİ!*",
     "report_header_banned": "🚫 *YASAKLI (SÜREKLİ)*",
-    "report_body": "{header}\n🌍 `{domain}`\n💡 Durum: *{status}*"
+    "report_body": "{header}\n🌍 `{domain}`\n💡 Durum: *{status}*",
+    
+    "expiry_warning_24h": (
+        "⏰ **Üyelik Uyarısı**\n\n"
+        "Üyeliğinizin bitmesine **24 saatten az** kaldı!\n"
+        "📅 Bitiş: {expiry}\n\n"
+        "Kesintisiz hizmet için şimdi yenileyin!"
+    ),
+    
+    "expiry_ended": (
+        "⛔ **Üyelik Sona Erdi**\n\n"
+        "Domain takibiniz durduruldu.\n\n"
+        "Devam etmek için paket satın alın:"
+    )
 }
 
 # --- MENÜ TASARIMLARI (UI) ---
@@ -151,15 +148,16 @@ def create_main_menu():
     btn_hesap = types.InlineKeyboardButton("👤 Hesabım", callback_data="hesabim")
     btn_liste = types.InlineKeyboardButton("📄 Domainlerim", callback_data="listem")
     btn_ekle = types.InlineKeyboardButton("➕ Ekle", callback_data="ekle")
-    btn_sil = types.InlineKeyboardButton("➖ Sil", callback_data="sil_menu")
-    btn_sorgu = types.InlineKeyboardButton("🔍 Hızlı Sorgu", callback_data="sorgu")
+    btn_sorgu = types.InlineKeyboardButton("🔍 Manuel Sorgu", callback_data="sorgu")
     btn_sss = types.InlineKeyboardButton("❓ S.S.S", callback_data="sss")
-    btn_destek = types.InlineKeyboardButton("💬 Destek / Satın Al", url=SUPPORT_URL)
+    btn_referans = types.InlineKeyboardButton("🎁 Davet Et", callback_data="referans")
+    btn_satin_al = types.InlineKeyboardButton("💰 Satın Al", callback_data="satin_al")
+    btn_destek = types.InlineKeyboardButton("💬 Canlı Destek", url=SUPPORT_URL)
     
     markup.add(btn_hesap, btn_liste)
-    markup.add(btn_ekle, btn_sil)
-    markup.add(btn_sorgu, btn_sss)
-    markup.add(btn_destek)
+    markup.add(btn_ekle, btn_sorgu)
+    markup.add(btn_sss, btn_referans)
+    markup.add(btn_satin_al, btn_destek)
     return markup
 
 def create_domain_list_menu(domains_info):
