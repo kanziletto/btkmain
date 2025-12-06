@@ -18,7 +18,7 @@ try:
     from config import IMAGE_UPLOAD_URL, MAX_CONCURRENT_SCANS, ADMIN_ID, ADMIN_CHANNEL_ID
 except ImportError:
     IMAGE_UPLOAD_URL = "" 
-    MAX_CONCURRENT_SCANS = 2
+    MAX_CONCURRENT_SCANS = 2 # Stabilite için 1 yaptık
     ADMIN_ID = 7107697888
     ADMIN_CHANNEL_ID = -1003498419781
 
@@ -60,10 +60,34 @@ def increment_domain(domain):
         return domain[:match.start()] + str(new) + domain[match.end():]
     except: return None
 
-def upload_image_to_remote(image_path):
+def upload_image_to_remote(image_data):
+    """
+    Görüntüyü (Path veya BytesIO) uzak sunucuya yükler ve URL döndürür.
+    """
     try:
-        with open(image_path, 'rb') as f:
-            response = upload_session.post(IMAGE_UPLOAD_URL, files={'file': f}, timeout=30)
+        files = {}
+        opened_file = None
+        
+        # Durum 1: Dosya yolu (String) ise
+        if isinstance(image_data, str) and os.path.exists(image_data):
+            opened_file = open(image_data, 'rb')
+            files = {'file': ('evidence.png', opened_file, 'image/png')}
+        
+        # Durum 2: RAM verisi (BytesIO) ise
+        elif isinstance(image_data, io.BytesIO):
+            image_data.seek(0) # İmleci başa al
+            files = {'file': ('evidence.png', image_data, 'image/png')}
+            
+        else:
+            return None
+
+        # Yükleme İsteği
+        response = upload_session.post(IMAGE_UPLOAD_URL, files=files, timeout=30)
+        
+        # Dosya açıldıysa kapat
+        if opened_file:
+            opened_file.close()
+
         if response.status_code == 200:
             url = response.json().get("url")
             if url: logger.info(f"📸 Resim Yüklendi: {url}")
@@ -84,19 +108,17 @@ def notification_worker():
                 url = task["url"]
                 payload = task["payload"]
                 try:
-                    # Debug Log
-                    print(f"📡 Webhook Tetiklendi... ({url[:30]}...)")
-                    
-                    # Basit Requests (Session yok)
-                    r = requests.post(url, json=payload, timeout=10)
-                    
-                    if r.status_code not in [200, 201, 204]:
-                        print(f"❌ Webhook Hatası (HTTP {r.status_code}): {r.text}")
-                    else:
-                        print(f"✅ Webhook Başarıyla İletildi! (HTTP {r.status_code})")
-                        
+                    # Retry Mekanizması (Basit)
+                    for i in range(3):
+                        try:
+                            r = requests.post(url, json=payload, timeout=10)
+                            if r.status_code in [200, 201, 204]:
+                                print(f"✅ Webhook İletildi! (HTTP {r.status_code})")
+                                break
+                        except:
+                            time.sleep(2)
                 except Exception as e:
-                    print(f"❌ Webhook Bağlantı Hatası: {e}")
+                    print(f"❌ Webhook Hatası: {e}")
 
             elif t_type == "telegram_text":
                 tg.send_message(task["chat_id"], task["text"])
@@ -127,80 +149,127 @@ def notification_worker():
 threading.Thread(target=notification_worker, daemon=True, name="Notifier").start()
 
 def queue_webhook(user_id, domain, old_status, new_status, image_url=None, next_domain=None):
-    # 1. Webhookları Bul
     webhooks = db.get_active_webhooks_for_domain(user_id, domain)
-    
-    if not webhooks:
-        return
-    
-    print(f"🔗 {len(webhooks)} Webhook bulundu. Hazırlanıyor...")
+    if not webhooks: return
     
     for webhook in webhooks:
         webhook_url = webhook["url"]
         
-        # SLACK FORMATI (BASİTLEŞTİRİLMİŞ TEST)
+        # --- SLACK FORMATI ---
         if "slack.com" in webhook_url.lower():
+            blocks = []
+            
             if new_status == "ENGELLİ":
-                # Sadece düz yazı (Text Only Payload)
-                msg = f"🚨 *{domain}* ENGELLENDİ! Lütfen *{next_domain if next_domain else 'yeni adrese'}* geçiniz."
-                if image_url:
-                    msg += f"\n📸 Kanıt: {image_url}"
+                # Metin Bloğu
+                msg_text = f"🚨 *{domain}* ENGELLENDİ! Lütfen *{next_domain if next_domain else 'yeni adrese'}* geçiniz."
                 
-                payload = {"text": msg}
+                # EKSTRA BİLGİ: Yeni domain takibi
+                if next_domain:
+                    msg_text += f"\n🔄 *{next_domain}* otomatik takibe alındı."
+
+                blocks.append({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": msg_text
+                    }
+                })
+                
+                # Resim Bloğu
+                if image_url:
+                    blocks.append({
+                        "type": "image",
+                        "image_url": image_url,
+                        "alt_text": "Erişim Engeli Kanıtı"
+                    })
             else:
-                # Temiz veya diğer durumlar
-                msg = f"ℹ️ *{domain}* Durumu: {new_status}"
-                payload = {"text": msg}
+                msg_text = f"ℹ️ *{domain}* Durumu: {new_status}"
+                blocks.append({
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": msg_text
+                    }
+                })
+            
+            payload = {"blocks": blocks}
         
-        # GENEL / DISCORD FORMATI
+        # --- DISCORD / GENEL FORMAT ---
         else:
-            msg = f"{domain} engellendi." if new_status == "ENGELLİ" else f"{domain} durumu: {new_status}"
+            if new_status == "ENGELLİ":
+                msg_content = f"🚫 **{domain}** ENGELLENDİ."
+                
+                if next_domain: 
+                    msg_content += f"\n👉 Yeni Adres: **{next_domain}**"
+                    # EKSTRA BİLGİ: Yeni domain takibi
+                    msg_content += f"\n🔄 **{next_domain}** otomatik takibe alındı."
+                
+                # DÜZELTME: Link önizlemesini (Double Preview) kaldırmak için 
+                # buradaki 'Kanıt: http...' satırını kaldırdık.
+                # Resim sadece aşağıdaki embed içinde görünecek.
+                
+                color = 15548997 # KIRMIZI
+            else:
+                msg_content = f"ℹ️ **{domain}** Durumu: {new_status}"
+                color = 5763719 # YEŞİL
+            
             payload = {
-                "content": msg,
+                "content": msg_content,
                 "username": "BTK Bot",
                 "embeds": []
             }
+            
+            # Embed Ayarları
+            embed_obj = {
+                "color": color
+            }
+            
+            # Resmi Embed içine göm (Böylece tek ve büyük görünür)
             if image_url:
-                payload["embeds"].append({
-                    "title": "Kanıt",
-                    "image": {"url": image_url},
-                    "color": 15158332 if new_status == "ENGELLİ" else 3066993
-                })
+                embed_obj["title"] = "🔍 Kanıt Ekran Görüntüsü"
+                embed_obj["description"] = f"Erişim durumu kontrol edildi. [Orijinal Resim]({image_url})"
+                embed_obj["image"] = {"url": image_url}
+            else:
+                embed_obj["description"] = "Detaylı kontrol yapıldı."
+
+            payload["embeds"].append(embed_obj)
         
         notification_queue.put({"type": "webhook", "url": webhook_url, "payload": payload})
 
 def process_scan_result_and_print(domain, sonuc, prefix, index, total):
     eski = db.get_domain_status(domain)
     yeni = sonuc.durum
+    
     db.update_stats(yeni)
     db.update_domain_status(domain, yeni) 
     
-    degisim = (eski != yeni) and (eski != "YENI")
+    degisim = (eski != yeni)
     next_domain = increment_domain(domain) if yeni == "ENGELLİ" else None
     
     image_url = None
     local_image_path = None
     
+    # Screenshot işlemleri (RAM ve Disk Desteği)
     if sonuc.screenshot_paths:
         for path in sonuc.screenshot_paths:
+            # 1. Önce Resmi Sunucuya Yükle (URL Al)
+            image_url = upload_image_to_remote(path)
+            
+            # 2. Telegram için yerel kopya hazırla
             if isinstance(path, str) and os.path.exists(path):
                 local_image_path = path
-                image_url = upload_image_to_remote(path)
                 break
-            elif not isinstance(path, str):
+            elif isinstance(path, io.BytesIO):
+                # Telegram büyük dosyaları RAM'den atarken bazen hata verebilir,
+                # garantilemek için geçici diske yazıyoruz.
                 temp_name = f"temp_{domain}_{int(time.time())}.png"
                 with open(temp_name, "wb") as f:
                     f.write(path.getvalue())
                 local_image_path = temp_name
-                image_url = upload_image_to_remote(temp_name)
                 break
 
     target_users = db.get_users_for_domain(domain)
     global_switch = None
-
-    if yeni == "ENGELLİ" and next_domain:
-        db.update_webhook_domain_string(domain, next_domain)
-
     ultra_ss_active = db.get_setting("ultra_screenshots")
 
     for user_id in target_users:
@@ -210,18 +279,23 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
         user_wants_ultra_ss = u_data.get("ultra_enabled", True)
         is_ultra = (u_data.get("plan") == "ultra" and yeni == "TEMİZ" and local_image_path and ultra_ss_active and user_wants_ultra_ss)
 
-        # 1. Webhook
-        if degisim or yeni == "ENGELLİ" or is_ultra:
+        # BİLDİRİM ŞARTI: Değişim VEYA Engelli Durumu VEYA Ultra Modu
+        # (Spam koruması kaldırıldı: Engelli olduğu sürece bildirim gider)
+        should_notify = degisim or (yeni == "ENGELLİ") or is_ultra
+
+        if should_notify:
+            # 1. Webhook (Resim URL'i ile)
             queue_webhook(user_id, domain, eski, yeni, image_url, next_domain)
 
-        # 2. Telegram
-        if degisim or yeni == "ENGELLİ" or is_ultra:
+            # 2. Telegram
             if is_ultra:
                 text = f"🛡️ **ULTRA KONTROL**\n🌍 `{domain}`\n✅ Durum: **TEMİZ**\n🕒 Saat: {datetime.datetime.now().strftime('%H:%M:%S')}"
             else:
                 header = tg_conf.MESSAGES["report_header_change"] if degisim else tg_conf.MESSAGES["report_header_banned"]
                 if yeni == "ENGELLİ" and next_domain:
                      text = f"{header}\n🚫 *{domain}* engellendi.\n👉 Lütfen *{next_domain}* adresine geçiniz."
+                elif yeni == "ENGELLİ":
+                     text = f"{header}\n🚫 *{domain}* engellendi."
                 else:
                      text = tg_conf.MESSAGES["report_body"].format(header=header, domain=domain, status=yeni)
             
@@ -240,9 +314,14 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
                 notification_queue.put({"type": "telegram_text", "chat_id": user_id, "text": f"🔄 **Oto-Geçiş:** `{domain}` ➡️ `{next_domain}`"})
                 global_switch = f"🔄 Geçiş: {domain} ➜ {next_domain}"
 
+    # Webhook güncellemesi
+    if yeni == "ENGELLİ" and next_domain:
+        db.update_webhook_domain_string(domain, next_domain)
+
     if global_switch:
         threading.Thread(target=start_manual_scan, args=(ADMIN_ID, [next_domain]), name="SwitchScan").start()
 
+    # Geçici dosyayı sil
     if local_image_path:
         threading.Timer(15.0, lambda: os.remove(local_image_path) if os.path.exists(local_image_path) else None).start()
 
@@ -276,10 +355,10 @@ def start_manual_scan(chat_id, domains):
 
     def worker():
         try:
-            tg.send_message(chat_id, f"🔍 {len(domains)} domain taranıyor... (Hızlandırılmış Mod)")
+            tg.send_message(chat_id, f"🔍 {len(domains)} domain taranıyor...")
             total = len(domains)
             results = []
-            print(f"\n[{datetime.datetime.now().strftime('%H:%M:%S')}] 🚀 [MANUEL] Başladı: {total} Görev (Parallel: {MAX_CONCURRENT_SCANS})")
+            print(f"\n[{datetime.datetime.now().strftime('%H:%M:%S')}] 🚀 [MANUEL] Başladı: {total} Görev")
             
             with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_SCANS) as executor:
                 tasks = [(i+1, total, d) for i, d in enumerate(domains)]
@@ -296,53 +375,68 @@ def start_manual_scan(chat_id, domains):
 
     threading.Thread(target=worker, name=f"ManualScan-{chat_id}").start()
 
+# --- GÜNCELLENEN BACKGROUND LOOP ---
 def background_loop():
     import os
     last_backup = ""; last_report = ""
-    print("--> [Engine] Arka plan döngüsü başladı.")
-    
-    def wait_until_next_5min():
-        now = datetime.datetime.now()
-        next_min = ((now.minute // 5) + 1) * 5
-        if next_min >= 60: next_time = (now + datetime.timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
-        else: next_time = now.replace(minute=next_min, second=0, microsecond=0)
-        wait_sec = (next_time - now).total_seconds()
-        if wait_sec <= 0: wait_sec += 300; next_time += datetime.timedelta(minutes=5)
-        print(f"[{now.strftime('%H:%M:%S')}] 💤 Tur Tamamlandı. {next_time.strftime('%H:%M:%S')} bekleniyor ({int(wait_sec)}s)...")
-        time.sleep(wait_sec)
+    print("--> [Engine] Arka plan döngüsü başlatıldı.")
+    print("--> [Takvim] Hafta İçi: 5dk | Hafta Sonu: 1 Saat")
+    print("--> [Mesai]  08:00 - 21:30 arası aktiftir.")
 
-    wait_until_next_5min()
-    
     while True:
         try:
             now = datetime.datetime.now()
             date_str = now.strftime("%Y-%m-%d")
             
-            # --- TEST: BAKIM & RAPOR (02:45) ---
-            if now.hour == 3:
-                if 15 <= now.minute < 20 and last_backup != date_str:
+            # 1. RAPORLAMA SAATİ (21:35 - 21:40)
+            # Bu blok mesai saatinden bağımsız çalışır.
+            if now.hour == 21:
+                # Yedekleme
+                if 35 <= now.minute < 40 and last_backup != date_str:
                     if os.path.exists("bot_data.db"):
-                        notification_queue.put({"type": "telegram_doc", "chat_id": ADMIN_CHANNEL_ID, "path": "bot_data.db", "caption": "💾 **Günlük Yedek (Test: 03:15)**"})
+                        notification_queue.put({"type": "telegram_doc", "chat_id": ADMIN_CHANNEL_ID, "path": "bot_data.db", "caption": "💾 **Günlük Yedek**"})
                     last_backup = date_str
             
-                if 15 <= now.minute < 20 and last_report != date_str:
+                # İstatistik Raporu
+                if 35 <= now.minute < 40 and last_report != date_str:
                     stats = db.get_stats(date_str)
-                    txt = (f"📊 **Günlük Rapor (Test)**\n📅 Tarih: {stats['date']}\n━━━━━━━━━━━━━━\n🔢 Toplam: **{stats['total']}**\n✅ Temiz: {stats['TEMIZ']}\n🚫 Engelli: {stats['ENGELLİ']}\n⚠️ Hata: {stats['HATA']}")
+                    txt = (f"📊 **Günlük Rapor**\n📅 Tarih: {stats['date']}\n━━━━━━━━━━━━━━\n🔢 Toplam: **{stats['total']}**\n✅ Temiz: {stats['TEMIZ']}\n🚫 Engelli: {stats['ENGELLİ']}\n⚠️ Hata: {stats['HATA']}")
                     chart = visuals.create_daily_stats_chart(stats)
                     if chart: notification_queue.put({"type": "telegram_chart", "chat_id": ADMIN_CHANNEL_ID, "chart": chart, "caption": txt})
                     else: notification_queue.put({"type": "telegram_text", "chat_id": ADMIN_CHANNEL_ID, "text": txt})
                     
-                    if now.weekday() == 0: 
+                    if now.weekday() == 0: # Pazartesi Raporu
                         weekly_stats = db.get_weekly_stats()
                         w_txt = (f"📈 **Haftalık Rapor**\n🗓️ Dönem: {weekly_stats['period']}\n━━━━━━━━━━━━━━\n🔢 Toplam: **{weekly_stats['total']}**\n✅ Temiz: {weekly_stats['TEMIZ']}\n🚫 Engelli: {weekly_stats['ENGELLİ']}\n⚠️ Hata: {weekly_stats['HATA']}")
                         notification_queue.put({"type": "telegram_text", "chat_id": ADMIN_CHANNEL_ID, "text": w_txt})
                     last_report = date_str
 
+            # 2. ÇALIŞMA SAATİ VE ARALIK BELİRLEME
+            current_mins = now.hour * 60 + now.minute
+            start_mins = 8 * 60         # 08:00
+            end_mins = 21 * 60 + 31     # 21:31
+            
+            is_working_hours = (start_mins <= current_mins <= end_mins)
+            is_weekend = (now.weekday() >= 5) # 5=Cmt, 6=Paz
+            
+            # Aralık (Interval) Belirleme
+            if is_working_hours:
+                if is_weekend:
+                    interval = 60 # Hafta sonu 1 saat
+                    mode_str = "Hafta Sonu Modu (1 Saat)"
+                else:
+                    interval = 5  # Hafta içi 5 dakika
+                    mode_str = "Hafta İçi Modu (5 Dk)"
+            else:
+                interval = 60 # Gece bekleme süresi
+                mode_str = "Gece Modu (Pasif)"
+
+            # 3. TARAMA (Sadece Mesai Saatlerinde)
             active = db.get_setting("system_active")
-            in_working_hours = True 
+            # Ultra kontrol periyodu (Her saat başı veya buçuğunda)
             is_ultra_period = (now.minute < 5) or (30 <= now.minute < 35)
 
-            if active and in_working_hours:
+            if active and is_working_hours:
                 users_domains = db.get_all_users_domains()
                 tasks = []
                 seen = set()
@@ -359,8 +453,9 @@ def background_loop():
                 
                 total = len(tasks)
                 if total > 0:
-                    print(f"\n[{now.strftime('%H:%M:%S')}] 🚀 [OTO] Başladı: {total} Görev (Parallel: {MAX_CONCURRENT_SCANS})")
-                    if is_ultra_period: print(f"💎 [ULTRA] Periyodik Rapor (Hedef: {len(domains_with_ultra)})")
+                    print(f"\n[{now.strftime('%H:%M:%S')}] 🚀 [OTO] Başladı ({mode_str}): {total} Görev")
+                    if is_ultra_period and domains_with_ultra: 
+                        print(f"💎 [ULTRA] Periyodik Rapor (Hedef: {len(domains_with_ultra)})")
 
                     with ThreadPoolExecutor(max_workers=MAX_CONCURRENT_SCANS) as executor:
                         def _bg_scan_wrapper(args):
@@ -377,17 +472,30 @@ def background_loop():
                         for i, (u, d) in enumerate(tasks, 1):
                             bg_tasks.append((u, d, i, total))
                         list(executor.map(_bg_scan_wrapper, bg_tasks))
+            elif not is_working_hours:
+                 print(f"[{now.strftime('%H:%M:%S')}] 🌙 Mesai dışı (08:00-21:30). Tarama yapılmıyor.")
+
+            # 4. HİZALAMA VE BEKLEME (Test modu yerine gerçek hizalama)
+            # Şu anki zamana göre bir sonraki interval dilimini hesapla
+            now = datetime.datetime.now()
             
-            def wait_until_next_minute():
-                now = datetime.datetime.now()
-                next_time = (now + datetime.timedelta(minutes=1)).replace(second=0, microsecond=0)
-                wait_sec = (next_time - now).total_seconds()
-                if wait_sec <= 0: wait_sec += 60
-                print(f"[{now.strftime('%H:%M:%S')}] 💤 Test Modu (1dk): {next_time.strftime('%H:%M:%S')} bekleniyor ({int(wait_sec)}s)...")
-                time.sleep(wait_sec)
+            # Matematiksel olarak bir sonraki "tam" dilimi bul
+            # Örnek: interval=60 ise ve saat 09:15 ise -> hedef 10:00
+            # Örnek: interval=5  ise ve saat 09:12 ise -> hedef 09:15
             
-            wait_until_next_minute()
+            current_epoch_mins = int(time.time() / 60)
+            next_epoch_mins = (current_epoch_mins // interval + 1) * interval
+            wait_minutes = next_epoch_mins - current_epoch_mins
+            wait_sec = wait_minutes * 60 - now.second
+            
+            # Güvenlik marjı (Negatif çıkarsa hemen çalışma)
+            if wait_sec <= 0: wait_sec = 60
+
+            next_run_time = now + datetime.timedelta(seconds=wait_sec)
+            print(f"[{now.strftime('%H:%M:%S')}] 💤 Bekleniyor: {next_run_time.strftime('%H:%M:%S')} ({int(wait_sec)}s) - {mode_str}")
+            
+            time.sleep(wait_sec)
 
         except Exception as e:
-            logger.error(f"Loop: {e}")
+            logger.error(f"Loop hatası: {e}")
             time.sleep(60)

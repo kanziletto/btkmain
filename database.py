@@ -263,8 +263,111 @@ class Database:
             conn.commit(); conn.close(); return cnt
 
     def export_all_data(self):
-        conn = self._get_conn(); c = conn.cursor()
-        output = ["VERİTABANI EXPORT"]
-        c.execute("SELECT user_id, plan FROM users"); output.append("KULLANICILAR:\n" + "\n".join([str(r) for r in c.fetchall()]))
-        c.execute("SELECT user_id, domain FROM domains"); output.append("\nDOMAINLER:\n" + "\n".join([str(r) for r in c.fetchall()]))
-        conn.close(); return "\n".join(output)
+        """
+        Veritabanındaki tüm verileri detaylı, okunabilir bir rapor formatında dışa aktarır.
+        """
+        conn = self._get_conn()
+        c = conn.cursor()
+        output = []
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # --- BAŞLIK ---
+        output.append(f"📊 VERİTABANI DETAYLI EXPORT RAPORU")
+        output.append(f"📅 Rapor Tarihi: {now}")
+        output.append("=" * 65)
+
+        # --- 1. GENEL ÖZET İSTATİSTİKLER ---
+        try:
+            total_users = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            total_domains = c.execute("SELECT COUNT(*) FROM domains").fetchone()[0]
+            total_webhooks = c.execute("SELECT COUNT(*) FROM webhooks").fetchone()[0]
+            
+            # Domain durum sayıları
+            clean_count = c.execute("SELECT COUNT(*) FROM status WHERE status='TEMİZ'").fetchone()[0]
+            banned_count = c.execute("SELECT COUNT(*) FROM status WHERE status='ENGELLİ'").fetchone()[0]
+            
+            output.append("🔢 GENEL SİSTEM ÖZETİ")
+            output.append(f"• Toplam Üye Sayısı    : {total_users}")
+            output.append(f"• Toplam Takip Edilen  : {total_domains} Domain")
+            output.append(f"• Tanımlı Webhook      : {total_webhooks}")
+            output.append(f"• Durum Dağılımı       : {clean_count} TEMİZ | {banned_count} ENGELLİ")
+            output.append("-" * 65)
+        except Exception as e:
+            output.append(f"❌ İstatistik Hatası: {e}")
+
+        # --- 2. KULLANICI DETAYLARI ---
+        output.append("\n👤 KULLANICI DETAYLARI VE PAKETLERİ")
+        output.append(f"{'USER ID':<15} | {'PLAN':<10} | {'DOM':<3} | {'BAŞLANGIÇ':<16} | {'BİTİŞ':<16}")
+        output.append("-" * 65)
+        
+        users = c.execute("SELECT user_id, plan, start_date, expiry_date FROM users ORDER BY expiry_date DESC").fetchall()
+        
+        for u in users:
+            uid, plan, start, expiry = u
+            # Kullanıcının kaç domaini var?
+            d_count = c.execute("SELECT COUNT(*) FROM domains WHERE user_id=?", (uid,)).fetchone()[0]
+            
+            # Tarih formatlama (Sadece YYYY-MM-DD HH:MM kısmını al)
+            s_date = start[:16] if start else "-"
+            e_date = expiry[:16] if expiry else "-"
+            
+            output.append(f"{uid:<15} | {plan:<10} | {d_count:<3} | {s_date:<16} | {e_date:<16}")
+        
+        output.append("=" * 65)
+
+        # --- 3. WEBHOOK DETAYLARI ---
+        output.append("\n🔗 TANIMLI WEBHOOKLAR")
+        webhooks = c.execute("SELECT id, user_id, name, url, domains, expiry_date, active FROM webhooks").fetchall()
+        
+        if not webhooks:
+            output.append("   (Sistemde kayıtlı webhook bulunmamaktadır.)")
+        else:
+            for w in webhooks:
+                wid, owner, name, url, targets, exp, active = w
+                status_simge = "🟢 AKTİF" if active else "🔴 PASİF"
+                output.append(f"🔹 [ID: {wid}] {name} ({status_simge})")
+                output.append(f"   ├─ Sahibi    : {owner}")
+                output.append(f"   ├─ URL       : {url}")
+                output.append(f"   ├─ Hedefler  : {targets}")
+                output.append(f"   └─ Bitiş     : {exp}")
+                output.append("")
+
+        output.append("=" * 65)
+
+        # --- 4. AYARLAR ---
+        output.append("\n⚙️ SİSTEM AYARLARI (Settings Tablosu)")
+        settings = c.execute("SELECT key, value FROM settings").fetchall()
+        for k, v in settings:
+            durum = "✅ AÇIK" if v else "❌ KAPALI"
+            output.append(f"• {k:<20} : {durum}")
+
+        output.append("=" * 65)
+
+        # --- 5. DOMAIN LİSTESİ (GRUPLU) ---
+        output.append("\n📄 KULLANICI BAZLI DOMAIN LİSTESİ")
+        
+        # Kullanıcıları ve domainlerini çek
+        all_domains = c.execute("SELECT user_id, domain FROM domains ORDER BY user_id").fetchall()
+        
+        if not all_domains:
+            output.append("   (Hiç domain eklenmemiş.)")
+        else:
+            current_user = None
+            for row in all_domains:
+                uid, domain = row
+                
+                # Yeni kullanıcı başlığı
+                if uid != current_user:
+                    output.append(f"\n🔻 Kullanıcı: {uid}")
+                    current_user = uid
+                
+                # Domainin durumunu da çekelim ki tam liste olsun
+                status_row = c.execute("SELECT status FROM status WHERE domain=?", (domain,)).fetchone()
+                status_str = status_row[0] if status_row else "BİLİNMİYOR"
+                
+                # Liste elemanı
+                icon = "✅" if status_str == "TEMİZ" else "🚫" if status_str == "ENGELLİ" else "⚠️"
+                output.append(f"   └─ {domain:<25} {icon} {status_str}")
+
+        conn.close()
+        return "\n".join(output)

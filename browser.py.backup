@@ -15,9 +15,6 @@ import atexit
 _driver_pool = None
 _pool_size = MAX_CONCURRENT_SCANS
 
-# Limit: Her tarayıcı 50 sorgudan sonra yenilensin
-MAX_USES_PER_DRIVER = 50 
-
 def _create_driver():
     """Yeni bir driver oluşturur (dahili kullanım)"""
     options = webdriver.ChromeOptions()
@@ -53,9 +50,6 @@ def _create_driver():
         # Bu ayar olmazsa proxy yavaşladığında bot sonsuza kadar donar.
         driver.set_page_load_timeout(30)
         driver.set_script_timeout(30)
-        
-        # YENİ: Kullanım sayacı ekle
-        driver.usage_count = 0 
         
         logger.info(f"✅ Yeni Chrome başlatıldı")
         return driver
@@ -116,49 +110,34 @@ def get_driver():
     
     class DriverContext:
         def __enter__(self):
-            # Bloklayarak al
+            # Bloklayarak al (timeout yok, çünkü havuzda hep döngü var)
             self.driver = _driver_pool.get()
             return self.driver
         
         def __exit__(self, exc_type, exc_val, exc_tb):
-            should_discard = False
-            
             if exc_type is not None:
-                # Hata durumunda driver bozuk olabilir
+                # Timeout veya hata durumunda driver bozulmuş olabilir, yenile.
                 logger.warning(f"⚠️ Driver hatası: {exc_val}")
-                should_discard = True
-            else:
-                try:
-                    # Kullanım sayısını artır
-                    self.driver.usage_count += 1
-                    
-                    # Limit kontrolü
-                    if self.driver.usage_count >= MAX_USES_PER_DRIVER:
-                        logger.info(f"♻️ Driver limiti doldu ({MAX_USES_PER_DRIVER}), yenileniyor...")
-                        should_discard = True
-                    else:
-                        # Temizlik
-                        self.driver.delete_all_cookies()
-                        self.driver.execute_script("window.localStorage.clear();")
-                        self.driver.execute_script("window.sessionStorage.clear();")
-                except:
-                    should_discard = True
-            
-            if should_discard:
                 try: self.driver.quit()
                 except: pass
                 
-                # Yerine yenisini koy
-                try:
-                    new_driver = _create_driver()
-                    _driver_pool.put(new_driver)
-                except Exception as e:
-                    logger.error(f"❌ Yeni driver oluşturulamadı: {e}")
-                    # Havuz eksik kalmasın diye tekrar denenebilir veya pass geçilebilir
+                # Bozuk driver yerine yenisini koy
+                try: 
+                    self.driver = _create_driver()
+                    logger.info("♻️ Driver yenilendi.")
+                except: 
+                    # Eğer yenisini oluşturamazsa havuz eksik kalır ama sistem durmaz
+                    return False 
             else:
-                # Havuza geri koy
-                _driver_pool.put(self.driver)
+                # Başarılıysa temizle
+                try:
+                    self.driver.delete_all_cookies()
+                    self.driver.execute_script("window.localStorage.clear();")
+                    self.driver.execute_script("window.sessionStorage.clear();")
+                except: pass
             
+            # Havuza geri koy
+            _driver_pool.put(self.driver)
             return False
     
     return DriverContext()

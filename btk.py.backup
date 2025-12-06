@@ -36,7 +36,7 @@ class BTKScanner:
             try:
                 # Kırpma denemesi
                 with Image.open(full_path) as img:
-                    crop_area = (448, 0, 1458, 555)
+                    crop_area = (472, 0, 1433, 597)
                     cropped_img = img.crop(crop_area)
                     # RAM (BytesIO) olarak döndürelim ki disk yorulmasın
                     output = io.BytesIO()
@@ -58,6 +58,8 @@ class BTKScanner:
 
     def _tek_sorgu(self, domain: str, force_screenshot=False) -> SorguSonucu:
         start_time = time.time()
+        img_path = f"temp_captcha_{domain}.png"
+        final_captcha_path = None
         screenshots = [] 
         
         try:
@@ -70,9 +72,9 @@ class BTKScanner:
                 captcha_img = wait.until(EC.visibility_of_element_located((By.ID, "security_code_image")))
                 btn_sorgula = driver.find_element(By.ID, "submit1")
 
-                png_data = captcha_img.screenshot_as_png
-                
-                captcha_code, provider = self.captcha_mgr.solve(png_data)
+                captcha_img.screenshot(img_path)
+                final_captcha_path = self.preprocess_image(img_path)
+                captcha_code, provider = self.captcha_mgr.solve(final_captcha_path)
                 
                 input_domain.clear()
                 input_domain.send_keys(domain)
@@ -114,7 +116,13 @@ class BTKScanner:
             return SorguSonucu(domain, "HATA", str(e), 0.0, screenshot_paths=screenshots)
         
         finally:
-              pass
+            # Temizlik işlemleri (os modülü burada kullanılıyor)
+            if os.path.exists(img_path):
+                try: os.remove(img_path) 
+                except: pass
+            if final_captcha_path and os.path.exists(final_captcha_path):
+                try: os.remove(final_captcha_path)
+                except: pass
 
     def sorgula(self, domain: str, max_retries=10, force_screenshot=False) -> SorguSonucu:
         sonuc = None
