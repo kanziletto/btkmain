@@ -32,7 +32,7 @@ class BTKScanner:
             
             # 2. Büyütme (3x) - OCR için daha net görüntü
             new_w, new_h = img.size
-            img = img.resize((new_w * 3, new_h * 3), Image.Resampling.LANCZOS)
+            img = img.resize((new_w * 7, new_h * 7), Image.Resampling.LANCZOS)
             
             # BytesIO olarak döndür
             output = io.BytesIO()

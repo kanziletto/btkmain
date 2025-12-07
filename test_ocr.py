@@ -30,7 +30,7 @@ def preprocess_captcha(png_data: bytes) -> bytes:
         
         # 2. Büyütme (3x)
         new_w, new_h = img.size
-        img = img.resize((new_w * 3, new_h * 3), Image.Resampling.LANCZOS)
+        img = img.resize((new_w * 7, new_h * 7), Image.Resampling.LANCZOS)
         
         output = io.BytesIO()
         img.save(output, format='PNG')
