@@ -250,6 +250,7 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
     db.update_domain_status(domain, yeni) 
     
     degisim = (eski != yeni)
+    degisim_from_error = (eski in ["HATA", "BİLİNMİYOR"])  # Hata durumundan gelen geçiş
     next_domain = increment_domain(domain) if yeni == "ENGELLİ" else None
     
     image_url = None
@@ -285,6 +286,12 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
             notification_queue.put({"type": "telegram_text", "chat_id": ADMIN_CHANNEL_ID, "text": admin_msg})
         # Kullanıcılara ve webhook'lara bildirim gönderme
     else:
+        # TÜM değişimleri admin kanalına bildir
+        if degisim:
+            icon = "✅" if yeni == "TEMİZ" else "🚫" if yeni == "ENGELLİ" else "❓"
+            admin_msg = f"{icon} **Durum Değişimi**\n🌍 `{domain}`\n📊 {eski} → {yeni}"
+            notification_queue.put({"type": "telegram_text", "chat_id": ADMIN_CHANNEL_ID, "text": admin_msg})
+        
         # Normal akış (TEMİZ ve ENGELLİ için)
         is_weekend = datetime.datetime.now().weekday() >= 5  # Cumartesi=5, Pazar=6
         
@@ -296,8 +303,8 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
             # Ultra SS hafta sonu pasif
             is_ultra = (u_data.get("plan") == "ultra" and yeni == "TEMİZ" and local_image_path and ultra_ss_active and user_wants_ultra_ss and not is_weekend)
 
-            # BİLDİRİM ŞARTI: Değişim VEYA Engelli Durumu VEYA Ultra Modu
-            should_notify = degisim or (yeni == "ENGELLİ") or is_ultra
+            # BİLDİRİM ŞARTI: (Değişim VE hata durumundan değilse) VEYA Engelli Durumu VEYA Ultra Modu
+            should_notify = (degisim and not degisim_from_error) or (yeni == "ENGELLİ") or is_ultra
 
             if should_notify:
                 # 1. Webhook (Resim URL'i ile)
