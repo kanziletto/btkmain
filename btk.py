@@ -17,18 +17,37 @@ class BTKScanner:
         self.captcha_mgr = CaptchaManager(CAPTCHA_PROVIDERS)
         self._page_loaded = False  # Sayfa yüklü mü?
 
-    def preprocess_image(self, image_path: str) -> str:
+    def preprocess_captcha(self, png_data: bytes) -> bytes:
+        """
+        Captcha görselini ön işlemden geçirir - OCR başarısını artırır.
+        Giriş: PNG bytes
+        Çıkış: İşlenmiş PNG bytes
+        """
         try:
-            img = Image.open(image_path)
+            img = Image.open(io.BytesIO(png_data))
             w, h = img.size
+            
+            # 1. Kenar kırpma (gürültü azaltma)
             img = img.crop((2, 2, w - 2, h - 2))
-            img = img.resize((w * 2, h * 2), Image.Resampling.LANCZOS)
-            base, ext = os.path.splitext(image_path)
-            processed_path = f"{base}_proc{ext}"
-            img.save(processed_path)
-            return processed_path
-        except:
-            return image_path
+            
+            # 2. Büyütme (2x) - OCR için daha net
+            new_w, new_h = img.size
+            img = img.resize((new_w * 2, new_h * 2), Image.Resampling.LANCZOS)
+            
+            # 3. Gri tonlamaya çevir
+            img = img.convert('L')
+            
+            # 4. Kontrast artırma (basit threshold)
+            img = img.point(lambda x: 0 if x < 140 else 255, '1')
+            
+            # BytesIO olarak döndür
+            output = io.BytesIO()
+            img.save(output, format='PNG')
+            output.seek(0)
+            return output.read()
+        except Exception as e:
+            logger.warning(f"Captcha ön işleme hatası: {e}")
+            return png_data
 
     def _take_screenshot(self, driver, domain):
         """Yardımcı Fonksiyon: Ekran görüntüsü alır"""
@@ -84,9 +103,10 @@ class BTKScanner:
                 captcha_img = wait.until(EC.visibility_of_element_located((By.ID, "security_code_image")))
                 btn_sorgula = driver.find_element(By.ID, "submit1")
 
-            # Captcha al ve çöz
+            # Captcha al, ön işle ve çöz
             png_data = captcha_img.screenshot_as_png
-            captcha_code, provider = self.captcha_mgr.solve(png_data)
+            processed_png = self.preprocess_captcha(png_data)
+            captcha_code, provider = self.captcha_mgr.solve(processed_png)
             
             # Form doldur
             input_domain.clear()
@@ -155,9 +175,13 @@ class BTKScanner:
                 sonuc = self._tek_sorgu(domain, driver, force_screenshot=force_screenshot)
                 
                 if sonuc.durum != "HATA":
+                    # Başarılı - kaç denemede olduğunu logla
+                    if attempt > 1:
+                        logger.info(f"✅ {domain} {attempt}. denemede başarılı")
                     return sonuc
                 
-                time.sleep(0.5)
+                # Retry öncesi biraz daha bekle (captcha yenilensin)
+                time.sleep(1.0)
             
             logger.error(f"❌ {domain}: {max_retries} denemede başarısız oldu")
             return sonuc
