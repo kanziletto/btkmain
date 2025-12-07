@@ -20,15 +20,35 @@ TEST_DOMAIN = "google.com"
 NUM_TESTS = 10
 
 def preprocess_captcha(png_data: bytes) -> bytes:
-    """Captcha ön işleme"""
+    """Captcha ön işleme - iyileştirilmiş versiyon"""
     try:
+        from PIL import ImageOps, ImageFilter
+        
         img = Image.open(io.BytesIO(png_data))
         w, h = img.size
+        
+        # 1. Kenar kırpma
         img = img.crop((2, 2, w - 2, h - 2))
+        
+        # 2. Büyütme (3x)
         new_w, new_h = img.size
-        img = img.resize((new_w * 2, new_h * 2), Image.Resampling.LANCZOS)
+        img = img.resize((new_w * 3, new_h * 3), Image.Resampling.LANCZOS)
+        
+        # 3. Gri tonlama
         img = img.convert('L')
-        img = img.point(lambda x: 0 if x < 140 else 255, '1')
+        
+        # 4. Otomatik kontrast
+        img = ImageOps.autocontrast(img, cutoff=5)
+        
+        # 5. Gürültü azaltma
+        img = img.filter(ImageFilter.MedianFilter(size=3))
+        
+        # 6. Dinamik threshold
+        pixels = list(img.getdata())
+        avg_pixel = sum(pixels) / len(pixels)
+        threshold = int(avg_pixel * 0.85)
+        img = img.point(lambda x: 0 if x < threshold else 255, '1')
+        
         output = io.BytesIO()
         img.save(output, format='PNG')
         output.seek(0)

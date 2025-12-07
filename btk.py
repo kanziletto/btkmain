@@ -24,21 +24,32 @@ class BTKScanner:
         Çıkış: İşlenmiş PNG bytes
         """
         try:
+            from PIL import ImageOps, ImageFilter
+            
             img = Image.open(io.BytesIO(png_data))
             w, h = img.size
             
             # 1. Kenar kırpma (gürültü azaltma)
             img = img.crop((2, 2, w - 2, h - 2))
             
-            # 2. Büyütme (2x) - OCR için daha net
+            # 2. Büyütme (3x) - OCR için daha net görüntü
             new_w, new_h = img.size
-            img = img.resize((new_w * 2, new_h * 2), Image.Resampling.LANCZOS)
+            img = img.resize((new_w * 3, new_h * 3), Image.Resampling.LANCZOS)
             
             # 3. Gri tonlamaya çevir
             img = img.convert('L')
             
-            # 4. Kontrast artırma (basit threshold)
-            img = img.point(lambda x: 0 if x < 140 else 255, '1')
+            # 4. Otomatik kontrast - histogram germe
+            img = ImageOps.autocontrast(img, cutoff=5)
+            
+            # 5. Gürültü azaltma - median filtre
+            img = img.filter(ImageFilter.MedianFilter(size=3))
+            
+            # 6. Dinamik threshold (ortalama tabanlı)
+            pixels = list(img.getdata())
+            avg_pixel = sum(pixels) / len(pixels)
+            threshold = int(avg_pixel * 0.85)  # Ortalamanın biraz altı
+            img = img.point(lambda x: 0 if x < threshold else 255, '1')
             
             # BytesIO olarak döndür
             output = io.BytesIO()
