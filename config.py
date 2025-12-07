@@ -22,10 +22,10 @@ MAX_CONCURRENT_SCANS = 3
 
 # --- TRONSCAN ÖDEME SİSTEMİ ---
 # Kendi USDT (TRC20) cüzdan adresinizi yazın
-USDT_WALLET_ADDRESS = "YOUR_TRC20_WALLET_ADDRESS_HERE"
+USDT_WALLET_ADDRESS = "TKGb3inpTMGvuLojp8dek4UXBASEN67wfa"
 
 # TronScan API (opsiyonel - rate limit için)
-TRONSCAN_API_KEY = ""
+TRONSCAN_API_KEY = "32a7d02e-118d-433c-ac40-f03627cb0ca6"
 
 # USDT TRC20 Contract Adresi (değiştirmeyin)
 USDT_CONTRACT = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
