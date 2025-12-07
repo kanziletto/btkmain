@@ -30,9 +30,9 @@ class BTKScanner:
             # 1. Kenar kırpma (gürültü azaltma)
             img = img.crop((2, 2, w - 2, h - 2))
             
-            # 2. Büyütme (4x) - OCR için daha net görüntü
+            # 2. Büyütme (3.5x) - OCR için daha net görüntü
             new_w, new_h = img.size
-            img = img.resize((new_w * 4, new_h * 4), Image.Resampling.LANCZOS)
+            img = img.resize((int(new_w * 3.5), int(new_h * 3.5)), Image.Resampling.LANCZOS)
             
             # BytesIO olarak döndür
             output = io.BytesIO()

@@ -28,9 +28,9 @@ def preprocess_captcha(png_data: bytes) -> bytes:
         # 1. Kenar kırpma
         img = img.crop((2, 2, w - 2, h - 2))
         
-        # 2. Büyütme (4x)
+        # 2. Büyütme (3.5x)
         new_w, new_h = img.size
-        img = img.resize((new_w * 4, new_h * 4), Image.Resampling.LANCZOS)
+        img = img.resize((int(new_w * 3.5), int(new_h * 3.5)), Image.Resampling.LANCZOS)
         
         output = io.BytesIO()
         img.save(output, format='PNG')
