@@ -77,7 +77,7 @@ MESSAGES = {
         "• Hafta sonu: 1 saatte bir\n\n"
         
         "**🔄 Oto-Geçiş**\n"
-        "site412 engellenince → site413 otomatik eklenir.\n\n"
+        "site110 engellenince → site111 otomatik eklenir.\n\n"
         
         "**📦 Paketler**\n"
         "🆓 Deneme: 48 saat, 2 domain\n\n"
