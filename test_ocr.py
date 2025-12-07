@@ -1,31 +1,23 @@
 """
-RapidOCR Test Script
+RapidOCR Test Script - Mevcut Bot Altyapısını Kullanır
 Bu script captcha çözme başarı oranını test eder.
 """
-import requests
 import time
 import os
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
+import sys
+
+# Bot modüllerini import et
+from browser import init_driver_pool, get_driver, cleanup_driver_pool
+from captcha.manager import CaptchaManager
+from config import CAPTCHA_PROVIDERS, OCR_API_URL
 from PIL import Image
 import io
+import requests
 
 # --- AYARLAR ---
-OCR_API_URL = "http://10.0.0.87:8000/ocr"  # config.py'den
 BTK_URL = "https://internet2.btk.gov.tr/sitesorgu/"
 TEST_DOMAIN = "google.com"  # Bilinen temiz domain
 NUM_TESTS = 10  # Kaç test yapılacak
-
-# Test sonuçları
-results = {
-    "success": 0,
-    "captcha_error": 0,
-    "other_error": 0,
-    "total_time": 0
-}
 
 def preprocess_captcha(png_data: bytes) -> bytes:
     """Captcha görselini ön işlemden geçir - OCR başarısını artırır"""
@@ -44,7 +36,7 @@ def preprocess_captcha(png_data: bytes) -> bytes:
         img = img.convert('L')
         
         # 4. Kontrast artırma (threshold)
-        img = img.point(lambda x: 0 if x < 128 else 255, '1')
+        img = img.point(lambda x: 0 if x < 140 else 255, '1')
         
         # BytesIO olarak döndür
         output = io.BytesIO()
@@ -55,26 +47,12 @@ def preprocess_captcha(png_data: bytes) -> bytes:
         print(f"Ön işleme hatası: {e}")
         return png_data
 
-def solve_captcha(png_data: bytes, preprocess=True) -> str:
-    """OCR API'ye istek at"""
-    try:
-        if preprocess:
-            png_data = preprocess_captcha(png_data)
-        
-        files = {'file': ('captcha.png', png_data, 'image/png')}
-        response = requests.post(OCR_API_URL, files=files, timeout=10)
-        
-        if response.status_code == 200:
-            result = response.json()
-            if result.get("status") == "success":
-                return result.get("text", "")
-        return ""
-    except Exception as e:
-        print(f"OCR API hatası: {e}")
-        return ""
-
-def single_test(driver, test_num: int, use_preprocess: bool = True) -> dict:
+def single_test(driver, captcha_mgr, test_num: int, use_preprocess: bool = True) -> dict:
     """Tek bir test çalıştır"""
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    
     start = time.time()
     
     try:
@@ -98,12 +76,20 @@ def single_test(driver, test_num: int, use_preprocess: bool = True) -> dict:
         with open(f"{debug_dir}/captcha_{test_num}.png", 'wb') as f:
             f.write(png_data)
         
-        # OCR çöz
-        captcha_text = solve_captcha(png_data, preprocess=use_preprocess)
-        print(f"  [Test {test_num}] OCR Sonucu: '{captcha_text}'", end=" ")
+        # Ön işleme
+        if use_preprocess:
+            processed_png = preprocess_captcha(png_data)
+            with open(f"{debug_dir}/captcha_{test_num}_processed.png", 'wb') as f:
+                f.write(processed_png)
+        else:
+            processed_png = png_data
         
-        if not captcha_text or len(captcha_text) < 3:
-            print("❌ OCR boş/kısa")
+        # OCR çöz (mevcut CaptchaManager kullan)
+        captcha_text, provider = captcha_mgr.solve(processed_png)
+        print(f"  [Test {test_num}] OCR: '{captcha_text}' ({provider})", end=" ")
+        
+        if not captcha_text or len(captcha_text) < 3 or captcha_text == "00000":
+            print("❌ OCR boş/başarısız")
             return {"status": "ocr_fail", "time": time.time() - start}
         
         # Form doldur ve gönder
@@ -120,7 +106,7 @@ def single_test(driver, test_num: int, use_preprocess: bool = True) -> dict:
         if "yanlış girdiniz" in page_source or "hatalı" in page_source:
             print("❌ Captcha yanlış")
             # Başarısız captcha'yı ayrı kaydet
-            with open(f"{debug_dir}/FAIL_captcha_{test_num}_{captcha_text}.png", 'wb') as f:
+            with open(f"{debug_dir}/FAIL_{test_num}_{captcha_text}.png", 'wb') as f:
                 f.write(png_data)
             return {"status": "captcha_error", "time": time.time() - start, "ocr_text": captcha_text}
         
@@ -138,7 +124,7 @@ def single_test(driver, test_num: int, use_preprocess: bool = True) -> dict:
 
 def main():
     print("=" * 60)
-    print("🧪 RapidOCR Captcha Test")
+    print("🧪 RapidOCR Captcha Test (Bot Altyapısı)")
     print("=" * 60)
     print(f"OCR API: {OCR_API_URL}")
     print(f"Test Sayısı: {NUM_TESTS}")
@@ -148,7 +134,6 @@ def main():
     # API bağlantı testi
     print("\n📡 OCR API bağlantı testi...")
     try:
-        # Basit bir test resmi gönder
         test_img = Image.new('RGB', (100, 40), color='white')
         img_bytes = io.BytesIO()
         test_img.save(img_bytes, format='PNG')
@@ -162,33 +147,38 @@ def main():
             return
     except Exception as e:
         print(f"❌ OCR API bağlantı hatası: {e}")
-        print("Lütfen OCR sunucusunun çalıştığından emin olun.")
         return
     
-    # Chrome ayarları
-    options = Options()
-    options.add_argument("--headless")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--window-size=1920,1080")
+    # CaptchaManager başlat
+    captcha_mgr = CaptchaManager(CAPTCHA_PROVIDERS)
     
-    driver = webdriver.Chrome(options=options)
+    # Driver havuzunu başlat
+    print("\n🔧 Chrome başlatılıyor...")
+    try:
+        init_driver_pool()
+    except Exception as e:
+        print(f"❌ Chrome başlatılamadı: {e}")
+        return
     
     try:
         print("\n🔄 Testler başlıyor...\n")
         
         success_count = 0
         captcha_fail_count = 0
+        ocr_fail_count = 0
         other_fail_count = 0
         total_time = 0
         
         for i in range(1, NUM_TESTS + 1):
-            result = single_test(driver, i, use_preprocess=True)
+            with get_driver() as driver:
+                result = single_test(driver, captcha_mgr, i, use_preprocess=True)
             
             if result["status"] == "success":
                 success_count += 1
             elif result["status"] == "captcha_error":
                 captcha_fail_count += 1
+            elif result["status"] == "ocr_fail":
+                ocr_fail_count += 1
             else:
                 other_fail_count += 1
             
@@ -196,30 +186,36 @@ def main():
             
             # Rate limit için bekle
             if i < NUM_TESTS:
-                time.sleep(1)
+                time.sleep(0.5)
         
         # Sonuçları göster
         print("\n" + "=" * 60)
         print("📊 TEST SONUÇLARI")
         print("=" * 60)
-        print(f"✅ Başarılı    : {success_count}/{NUM_TESTS} ({100*success_count/NUM_TESTS:.1f}%)")
-        print(f"❌ Captcha Hata: {captcha_fail_count}/{NUM_TESTS} ({100*captcha_fail_count/NUM_TESTS:.1f}%)")
-        print(f"⚠️ Diğer Hata  : {other_fail_count}/{NUM_TESTS} ({100*other_fail_count/NUM_TESTS:.1f}%)")
-        print(f"⏱️ Ort. Süre   : {total_time/NUM_TESTS:.2f} saniye")
+        print(f"✅ Başarılı     : {success_count}/{NUM_TESTS} ({100*success_count/NUM_TESTS:.1f}%)")
+        print(f"❌ Captcha Hata : {captcha_fail_count}/{NUM_TESTS} ({100*captcha_fail_count/NUM_TESTS:.1f}%)")
+        print(f"🔴 OCR Başarısız: {ocr_fail_count}/{NUM_TESTS} ({100*ocr_fail_count/NUM_TESTS:.1f}%)")
+        print(f"⚠️ Diğer Hata   : {other_fail_count}/{NUM_TESTS} ({100*other_fail_count/NUM_TESTS:.1f}%)")
+        print(f"⏱️ Ort. Süre    : {total_time/NUM_TESTS:.2f} saniye")
         print("-" * 60)
         
-        if success_count >= NUM_TESTS * 0.7:
-            print("💚 OCR performansı İYİ (>70%)")
-        elif success_count >= NUM_TESTS * 0.5:
-            print("💛 OCR performansı ORTA (50-70%) - İyileştirme gerekli")
-        else:
-            print("❤️ OCR performansı DÜŞÜK (<50%) - Acil iyileştirme gerekli")
+        # Analiz
+        ocr_attempted = NUM_TESTS - ocr_fail_count
+        if ocr_attempted > 0:
+            real_ocr_accuracy = 100 * success_count / ocr_attempted
+            print(f"📈 Gerçek OCR Doğruluğu: {real_ocr_accuracy:.1f}% (OCR çalıştığında)")
         
-        print("\n💡 Başarısız captcha'lar 'captcha_debug' klasörüne kaydedildi.")
-        print("   Bunları inceleyerek OCR'yi iyileştirebilirsiniz.")
+        if success_count >= NUM_TESTS * 0.7:
+            print("\n💚 OCR performansı İYİ (≥70%)")
+        elif success_count >= NUM_TESTS * 0.5:
+            print("\n💛 OCR performansı ORTA (50-70%) - İyileştirme gerekli")
+        else:
+            print("\n❤️ OCR performansı DÜŞÜK (<50%) - Acil iyileştirme gerekli")
+        
+        print("\n💡 Debug dosyaları 'captcha_debug' klasörüne kaydedildi.")
         
     finally:
-        driver.quit()
+        cleanup_driver_pool()
 
 if __name__ == "__main__":
     main()
