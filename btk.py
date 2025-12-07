@@ -30,7 +30,7 @@ class BTKScanner:
             # 1. Kenar kırpma (gürültü azaltma)
             img = img.crop((2, 2, w - 2, h - 2))
             
-            # 2. Büyütme (3x) - OCR için daha net görüntü
+            # 2. Büyütme (7x) - OCR için daha net görüntü
             new_w, new_h = img.size
             img = img.resize((new_w * 7, new_h * 7), Image.Resampling.LANCZOS)
             
@@ -156,11 +156,7 @@ class BTKScanner:
         sonuc = None
         
         with get_driver() as driver:
-            # İlk açılışta sayfayı yükle
-            try:
-                driver.get(self.base_url)
-            except:
-                pass
+            # Sayfa yüklemeyi _tek_sorgu'ya bırak (sadece gerekirse yüklenecek)
             
             for attempt in range(1, max_retries + 1):
                 if attempt > 1:
@@ -174,8 +170,8 @@ class BTKScanner:
                         logger.info(f"✅ {domain} {attempt}. denemede başarılı")
                     return sonuc
                 
-                # Retry öncesi biraz daha bekle (captcha yenilensin)
-                time.sleep(1.0)
+                # Retry öncesi kısa bekle (captcha yenilensin)
+                time.sleep(0.5)
             
             logger.error(f"❌ {domain}: {max_retries} denemede başarısız oldu")
             return sonuc
