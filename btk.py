@@ -80,22 +80,23 @@ class BTKScanner:
             # Polling interval: 0.2s (varsayılan 0.5s'den hızlı)
             wait = WebDriverWait(driver, 15, poll_frequency=0.2)
             
-            # Sayfa yüklü değilse veya elementler bulunamıyorsa yeniden yükle
+            # Elementleri bekle ve taze olarak al (BTK otomatik yeniliyor)
             try:
-                input_domain = driver.find_element(By.ID, "deger")
-                input_captcha = driver.find_element(By.ID, "security_code")
-                captcha_img = driver.find_element(By.ID, "security_code_image")
-                btn_sorgula = driver.find_element(By.ID, "submit1")
+                # İlk açılışta sayfa yükle
+                if "btk.gov.tr" not in driver.current_url:
+                    driver.get(self.base_url)
                 
-                # Elementler stale mi kontrol et
-                input_domain.is_displayed()
-            except (StaleElementReferenceException, Exception):
-                # Sayfa yeniden yüklenmeli
+                input_domain = wait.until(EC.visibility_of_element_located((By.ID, "deger")))
+                input_captcha = wait.until(EC.visibility_of_element_located((By.ID, "security_code")))
+                captcha_img = wait.until(EC.visibility_of_element_located((By.ID, "security_code_image")))
+                btn_sorgula = wait.until(EC.element_to_be_clickable((By.ID, "submit1")))
+            except:
+                # Element bulunamazsa sayfayı yenile
                 driver.get(self.base_url)
                 input_domain = wait.until(EC.visibility_of_element_located((By.ID, "deger")))
-                input_captcha = driver.find_element(By.ID, "security_code")
+                input_captcha = wait.until(EC.visibility_of_element_located((By.ID, "security_code")))
                 captcha_img = wait.until(EC.visibility_of_element_located((By.ID, "security_code_image")))
-                btn_sorgula = driver.find_element(By.ID, "submit1")
+                btn_sorgula = wait.until(EC.element_to_be_clickable((By.ID, "submit1")))
 
             # Captcha al, ön işle ve çöz
             png_data = captcha_img.screenshot_as_png
@@ -123,8 +124,7 @@ class BTKScanner:
             if "yanlış girdiniz" in page_source or "hatalı" in page_source:
                 durum = "HATA"
                 detay = "Captcha/Veri Hatası"
-                # Captcha yanlış girildiyse sayfayı yenile (yeni captcha için)
-                driver.get(self.base_url)
+                # (Sayfa yenileme kaldırıldı - her denemede zaten yenileniyor)
             
             elif "engellenmiştir" in page_source:
                 durum = "ENGELLİ"
