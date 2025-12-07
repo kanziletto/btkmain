@@ -9,7 +9,7 @@ SUPPORT_URL = "https://t.me/londonlondon25"
 
 # --- SUNUCU AYARLARI ---
 # OCR ve Resim Upload Sunucusu (Server 2)
-# Not: Buraya 2. sunucunuzun PUBLIC IP adresini yazın
+# Not: Buraya 2. sunucunuzun PUBLIC IP adresini yazın#
 OCR_API_URL = "http://10.0.0.87:8000/ocr"
 IMAGE_UPLOAD_URL = "http://79.76.116.181:8000/upload"
 
