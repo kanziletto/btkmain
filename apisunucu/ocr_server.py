@@ -46,22 +46,6 @@ def read_captcha(file: UploadFile = File(...)):
         
         # Sadece harf ve rakamları al
         clean_text = "".join(filter(str.isalnum, full_text))
-        
-        # Yaygın OCR hataları düzeltme (BTK captcha genelde sayısal)
-        if len(clean_text) >= 4:
-            corrections = {
-                'O': '0', 'o': '0',  # O harfi genelde 0 rakamı
-                'l': '1', 'I': '1',  # l ve I genelde 1
-                'S': '5', 's': '5',  # S bazen 5
-                'B': '8',            # B bazen 8
-                'Z': '2', 'z': '2',  # Z bazen 2
-                'G': '6', 'g': '6',  # G bazen 6
-            }
-            corrected = ""
-            for c in clean_text:
-                corrected += corrections.get(c, c)
-            clean_text = corrected
-        
         return {"status": "success", "text": clean_text}
 
     except Exception as e:
