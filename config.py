@@ -18,7 +18,7 @@ CAPTCHA_PROVIDERS = ['remote_api']
 HEADLESS_MODE = True
 DB_FILE = "bot_data.db"
 LOG_DIR = "logs"
-MAX_CONCURRENT_SCANS = 0
+MAX_CONCURRENT_SCANS = 2
 
 # --- TRONSCAN ÖDEME SİSTEMİ ---
 # Kendi USDT (TRC20) cüzdan adresinizi yazın
