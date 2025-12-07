@@ -1,4 +1,27 @@
+# BTK Sorgu - Robots.txt
+# https://btksorgu.net
+
 User-agent: *
 Allow: /
 
+# Sitemap location
 Sitemap: https://btksorgu.net/sitemap.xml
+
+# Crawl delay (optional - be nice to servers)
+Crawl-delay: 1
+
+# Googlebot specific
+User-agent: Googlebot
+Allow: /
+
+# Google Images
+User-agent: Googlebot-Image
+Allow: /
+
+# Bingbot
+User-agent: Bingbot
+Allow: /
+
+# Yandex
+User-agent: Yandex
+Allow: /
