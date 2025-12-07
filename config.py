@@ -13,7 +13,7 @@ SUPPORT_URL = "https://t.me/londonlondon25"
 OCR_API_URL = "http://10.0.0.87:8000/ocr"
 IMAGE_UPLOAD_URL = "http://79.76.116.181:8000/upload"
 
-# --- DİĞER AYARLAR ---sss
+# --- DİĞER AYARLAR ---
 CAPTCHA_PROVIDERS = ['remote_api'] 
 HEADLESS_MODE = True
 DB_FILE = "bot_data.db"
