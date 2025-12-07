@@ -314,7 +314,7 @@ class Database:
 
     def get_domain_info(self, domain):
         conn = self._get_conn(); c = conn.cursor(); c.execute("SELECT status, last_check FROM status WHERE domain=?", (domain,)); row = c.fetchone(); conn.close()
-        return (row[0], row[1]) if row else ("YENI", "--:--:--")
+        return (row[0], row[1]) if row else ("YENI", "--")
 
     def get_domain_status(self, domain):
         conn = self._get_conn(); c = conn.cursor(); c.execute("SELECT status FROM status WHERE domain=?", (domain,)); row = c.fetchone(); conn.close()
@@ -322,7 +322,7 @@ class Database:
 
     def update_domain_status(self, domain, status):
         with self._lock:
-            conn = self._get_conn(); c = conn.cursor(); now = datetime.datetime.now().strftime("%H:%M:%S")
+            conn = self._get_conn(); c = conn.cursor(); now = datetime.datetime.now().strftime("%d.%m %H:%M")
             c.execute("INSERT OR REPLACE INTO status (domain, status, last_check) VALUES (?, ?, ?)", (domain, status, now)); conn.commit(); conn.close()
 
     def add_webhook(self, user_id: str, name: str, url: str, domains: list, days: int):
