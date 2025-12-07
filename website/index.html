@@ -50,6 +50,49 @@
     <meta name="twitter:image" content="https://btksorgu.net/og-image.png">
 
     <!-- Schema.org Structured Data -->
+
+    <!-- Organization Schema - Required for Google Logo -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        "name": "BTK Sorgu",
+        "alternateName": "BTK Sorgu Bot",
+        "url": "https://btksorgu.net",
+        "logo": "https://btksorgu.net/favicon.png",
+        "image": "https://btksorgu.net/og-image.png",
+        "description": "BTK ve TİB domain engelleme sorgulama servisi",
+        "sameAs": [
+            "https://t.me/tibktt_bot"
+        ],
+        "contactPoint": {
+            "@type": "ContactPoint",
+            "contactType": "customer service",
+            "url": "https://t.me/londonlondon25"
+        }
+    }
+    </script>
+
+    <!-- WebSite Schema - For Sitelinks Search Box -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "BTK Sorgu",
+        "alternateName": "BTK Domain Sorgu",
+        "url": "https://btksorgu.net",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {
+                "@type": "EntryPoint",
+                "urlTemplate": "https://btksorgu.net/?q={search_term_string}"
+            },
+            "query-input": "required name=search_term_string"
+        }
+    }
+    </script>
+
+    <!-- SoftwareApplication Schema -->
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
@@ -59,6 +102,7 @@
         "operatingSystem": "Telegram",
         "description": "BTK ve TİB domain engelleme sorgulama botu. Domainlerinizi 7/24 otomatik kontrol edin ve engelleme anında bildirim alın.",
         "url": "https://btksorgu.net",
+        "image": "https://btksorgu.net/favicon.png",
         "author": {
             "@type": "Organization",
             "name": "BTK Sorgu"
