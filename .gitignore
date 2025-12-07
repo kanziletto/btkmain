@@ -11,6 +11,11 @@ __pycache__/
 venv/
 env/
 
+# Veritabanı (git pull'da ezilmemeli!)
+bot_data.db
+bot_data.db-wal
+bot_data.db-shm
+
 # (İsteğe Bağlı) Eğer tokenleri gizlemek isterseniz başındaki # işaretini kaldırın:
 # telegram_config.py
 
