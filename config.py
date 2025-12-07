@@ -16,7 +16,7 @@ IMAGE_UPLOAD_URL = "http://79.76.116.181:8000/upload"
 # --- DİĞER AYARLAR ---
 CAPTCHA_PROVIDERS = ['remote_api'] 
 HEADLESS_MODE = True
-DB_FILE = "bot_data.db"
+DB_FILE = "/home/ubuntu/btk/bot_data.db"
 LOG_DIR = "logs"
 MAX_CONCURRENT_SCANS = 2
 
