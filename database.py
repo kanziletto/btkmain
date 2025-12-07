@@ -322,7 +322,7 @@ class Database:
 
     def update_domain_status(self, domain, status):
         with self._lock:
-            conn = self._get_conn(); c = conn.cursor(); now = datetime.datetime.now().strftime("%d.%m %H:%M")
+            conn = self._get_conn(); c = conn.cursor(); now = datetime.datetime.now().strftime("%d.%m %H:%M:%S")
             c.execute("INSERT OR REPLACE INTO status (domain, status, last_check) VALUES (?, ?, ?)", (domain, status, now)); conn.commit(); conn.close()
 
     def add_webhook(self, user_id: str, name: str, url: str, domains: list, days: int):
