@@ -120,8 +120,12 @@ class BTKScanner:
             page_source = driver.page_source.lower()
             durum = "BİLİNMİYOR"
             detay = "Analiz edilemedi"
+            
+            # DEBUG: Captcha ve sonuç logla
+            logger.info(f"🔍 {domain} | Captcha: '{captcha_code}' | Sonuç bekleniyor...")
 
             if "yanlış girdiniz" in page_source or "hatalı" in page_source:
+                logger.warning(f"❌ {domain} | Captcha YANLIŞ: '{captcha_code}'")
                 durum = "HATA"
                 detay = "Captcha/Veri Hatası"
                 # (Sayfa yenileme kaldırıldı - her denemede zaten yenileniyor)

@@ -36,8 +36,15 @@ class RemoteAPISolver(BaseCaptchaSolver):
             
             if response.status_code == 200:
                 result = response.json()
+                logger.info(f"📝 OCR API Yanıtı: {result}")
                 if result.get("status") == "success":
-                    return result.get("text", "")
+                    text = result.get("text", "")
+                    logger.info(f"✅ Captcha Çözümü: '{text}' ({len(text)} karakter)")
+                    return text
+                else:
+                    logger.warning(f"⚠️ OCR status: {result.get('status')}, message: {result.get('message', '-')}")
+            else:
+                logger.error(f"❌ OCR API HTTP Hatası: {response.status_code}")
             return ""
 
         except Exception as e:
