@@ -705,6 +705,42 @@ class Database:
                 "bonus_days": bonus_days
             }
     
+    def give_immediate_referral_bonus(self, referrer_id: str, bonus_hours: int = 24) -> bool:
+        """Referans linki ile birisi katıldığında davet edene anında bonus ver"""
+        with self._lock:
+            conn = self._get_conn()
+            c = conn.cursor()
+            
+            try:
+                # Davet edenin mevcut süresini al
+                row = c.execute(
+                    "SELECT expiry_date FROM users WHERE user_id = ?",
+                    (str(referrer_id),)
+                ).fetchone()
+                
+                if row and row[0]:
+                    current_expiry = datetime.datetime.strptime(row[0][:19], "%Y-%m-%d %H:%M:%S")
+                    now = datetime.datetime.now()
+                    
+                    # Mevcut süre aktifse üzerine ekle, değilse şimdiden başlat
+                    if current_expiry > now:
+                        new_expiry = current_expiry + datetime.timedelta(hours=bonus_hours)
+                    else:
+                        new_expiry = now + datetime.timedelta(hours=bonus_hours)
+                    
+                    c.execute(
+                        "UPDATE users SET expiry_date = ? WHERE user_id = ?",
+                        (str(new_expiry), str(referrer_id))
+                    )
+                    conn.commit()
+                    return True
+            except Exception as e:
+                print(f"Referral bonus error: {e}")
+                return False
+            finally:
+                conn.close()
+        return False
+
     def get_referral_stats(self, user_id: str) -> dict:
         """Kullanıcının referans istatistiklerini getir"""
         conn = self._get_conn()

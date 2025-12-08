@@ -165,6 +165,18 @@ def cmd_start(message):
         if referrer_id and referrer_id != str(cid):
             if db.add_referral(referrer_id, cid):
                 bot.send_message(cid, "🎁 **Referans Bonusu!**\nBir kullanıcı tarafından davet edildiniz.\nTrial süreniz **72 saate** uzatıldı!", parse_mode="Markdown")
+                
+                # Davet edene anında +24 saat bonus ver
+                if db.give_immediate_referral_bonus(referrer_id, bonus_hours=24):
+                    try:
+                        bot.send_message(referrer_id, 
+                            "🎁 **Referans Bonusu!**\n\n"
+                            "Davet linkinizle birisi katıldı!\n"
+                            "📅 **+24 saat** süre eklendi.\n\n"
+                            "💡 Ödeme yaparsa ekstra **+7 gün** kazanırsınız!",
+                            parse_mode="Markdown"
+                        )
+                    except: pass
         
         # Hafta sonu kontrolü
         is_weekend = datetime.datetime.now().weekday() >= 5
