@@ -28,7 +28,7 @@ class RemoteAPISolver(BaseCaptchaSolver):
                 files = {'file': ('captcha.png', image_data, 'image/png')}
 
             # Timeout süresini 10 saniyeye düşürdük (30sn çok uzun)
-            response = requests.post(self.api_url, files=files, timeout=10)
+            response = requests.post(self.api_url, files=files, timeout=30)
             
             # Eğer dosya açtıysak kapatalım
             if opened_file:

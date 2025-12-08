@@ -44,8 +44,8 @@ def _create_driver():
         
         # 🚨 KRİTİK AYAR: Sayfa yükleme zaman aşımı (15 saniye)
         # Bu ayar olmazsa proxy yavaşladığında bot sonsuza kadar donar.
-        driver.set_page_load_timeout(15)
-        driver.set_script_timeout(15)
+        driver.set_page_load_timeout(30)
+        driver.set_script_timeout(30)
         
         # YENİ: Kullanım sayacı ekle
         driver.usage_count = 0 

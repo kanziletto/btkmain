@@ -78,7 +78,7 @@ class BTKScanner:
         
         try:
             # Polling interval: 0.2s (varsayılan 0.5s'den hızlı)
-            wait = WebDriverWait(driver, 15, poll_frequency=0.2)
+            wait = WebDriverWait(driver, 30, poll_frequency=0.2)
             
             # Elementleri bekle ve taze olarak al (BTK otomatik yeniliyor)
             try:
