@@ -98,10 +98,10 @@ class BTKScanner:
                 captcha_img = wait.until(EC.visibility_of_element_located((By.ID, "security_code_image")))
                 btn_sorgula = wait.until(EC.element_to_be_clickable((By.ID, "submit1")))
 
-            # Captcha al, ön işle ve çöz
+            # Captcha al ve doğrudan OCR'a gönder (ön işleme KAPALI)
             png_data = captcha_img.screenshot_as_png
-            processed_png = self.preprocess_captcha(png_data)
-            captcha_code, provider = self.captcha_mgr.solve(processed_png)
+            # processed_png = self.preprocess_captcha(png_data)  # KAPALI
+            captcha_code, provider = self.captcha_mgr.solve(png_data)
             
             # Form doldur
             input_domain.clear()
