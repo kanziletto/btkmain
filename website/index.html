@@ -163,31 +163,39 @@
 </head>
 
 <body>
-    <!-- Particles Effect - Full Page -->
-    <div class="particles-container" id="particles"></div>
-
     <!-- Hero Section -->
     <section class="hero">
+        <!-- Floating Geometric Shapes -->
+        <div class="floating-shapes">
+            <div class="shape shape-1"></div>
+            <div class="shape shape-2"></div>
+            <div class="shape shape-3"></div>
+            <div class="shape shape-4"></div>
+            <div class="shape shape-5"></div>
+            <div class="shape shape-6"></div>
+            <div class="shape shape-7"></div>
+            <div class="shape shape-8"></div>
+            <div class="shape-line shape-line-1"></div>
+            <div class="shape-line shape-line-2"></div>
+        </div>
 
         <nav class="nav">
-            <div class="nav-left">
-                <div class="nav-logo">
-                    <img src="favicon.svg" alt="BTK Sorgu Logo" class="logo-icon" style="width: 28px; height: 28px;">
-                    <span class="logo-text">BTK Sorgu</span>
-                </div>
-                <div class="nav-links">
-                    <a href="#features">Özellikler</a>
-                    <a href="#pricing">Paketler</a>
-                    <a href="#referral">Referans</a>
-                    <a href="/btk-nedir.html">Blog</a>
-                </div>
+            <div class="nav-logo">
+                <img src="favicon.svg" alt="BTK Sorgu Logo" class="logo-icon" style="width: 28px; height: 28px;">
+                <span class="logo-text">BTK Sorgu</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Özellikler</a>
+                <a href="#pricing">Paketler</a>
+                <a href="#referral">Referans</a>
+                <a href="/btk-nedir.html">Blog</a>
             </div>
             <a href="https://t.me/tibktt_bot" class="nav-cta">Botu Başlat →</a>
         </nav>
 
         <div class="hero-content">
             <div class="badge">🚀 BTK & TİB Domain Sorgu Botu</div>
-            <h1>BTK Domain Sorgu Botu</h1>
+            <h1>BTK Domain Sorgu <span class="gradient-text">Botu</span></h1>
             <p class="hero-desc">TİB ve BTK domain sorgu sistemi ile domainlerinizi 7/24 otomatik kontrol edin.
                 Engelleme anında Telegram bot bildirimi alın.</p>
 
@@ -410,34 +418,6 @@
     <a href="https://t.me/londonlondon25" class="floating-support" target="_blank">
         💬 Destek
     </a>
-
-    <!-- Mouse Glow Effect -->
-    <div class="mouse-glow" id="mouseGlow"></div>
-
-    <script>
-        // Mouse-following glow effect (instant)
-        const glow = document.getElementById('mouseGlow');
-
-        document.addEventListener('mousemove', (e) => {
-            glow.style.left = e.clientX + 'px';
-            glow.style.top = (e.clientY + window.scrollY) + 'px';
-        });
-
-        // Particles effect
-        const particlesContainer = document.getElementById('particles');
-        const particleCount = 80;
-
-        for (let i = 0; i < particleCount; i++) {
-            const particle = document.createElement('div');
-            particle.className = 'particle';
-            particle.style.left = Math.random() * 100 + '%';
-            particle.style.animationDelay = Math.random() * 15 + 's';
-            particle.style.animationDuration = (10 + Math.random() * 10) + 's';
-            particle.style.width = (2 + Math.random() * 4) + 'px';
-            particle.style.height = particle.style.width;
-            particlesContainer.appendChild(particle);
-        }
-    </script>
 </body>
 
 </html>
