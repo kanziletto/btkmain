@@ -31,4 +31,26 @@
       <image:caption>Türkiye'de domain engelleme süreci ve BTK hakkında kapsamlı rehber</image:caption>
     </image:image>
   </url>
+  <url>
+    <loc>https://btksorgu.net/domain-engelleme-kontrol.html</loc>
+    <lastmod>2025-12-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://btksorgu.net/og-image.png</image:loc>
+      <image:title>Domain Engelleme Kontrolü Nasıl Yapılır?</image:title>
+      <image:caption>BTK sitesinden domain engelleme kontrolü yapma rehberi</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://btksorgu.net/site-engellenince.html</loc>
+    <lastmod>2025-12-10</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://btksorgu.net/og-image.png</image:loc>
+      <image:title>Site Engellenince Ne Yapmalı?</image:title>
+      <image:caption>BTK site engelleme durumunda acil aksiyon rehberi</image:caption>
+    </image:image>
+  </url>
 </urlset>
