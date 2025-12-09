@@ -10,9 +10,11 @@
 :root {
     --black: #000000;
     --white: #ffffff;
-    --gray: #888888;
-    --gray-dark: #333333;
-    --gray-light: #cccccc;
+    --gray: #a0a0a0;
+    --gray-dark: #444444;
+    --gray-light: #e0e0e0;
+    --border-color: rgba(255, 255, 255, 0.15);
+    --border-hover: rgba(255, 255, 255, 0.35);
 }
 
 html {
@@ -30,10 +32,10 @@ body {
 
 /* GRADIENT MESH + PARTICLES EFFECT */
 
-/* Animated Gradient Mesh Background */
-.hero::before {
+/* Animated Gradient Mesh Background - Full Page */
+body::before {
     content: '';
-    position: absolute;
+    position: fixed;
     top: -50%;
     left: -50%;
     width: 200%;
@@ -45,7 +47,7 @@ body {
         radial-gradient(ellipse at 10% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 45%);
     animation: meshMove 10s ease-in-out infinite;
     pointer-events: none;
-    z-index: 0;
+    z-index: -1;
 }
 
 @keyframes meshMove {
@@ -68,16 +70,16 @@ body {
     }
 }
 
-/* Particles Container */
+/* Particles Container - Full Page */
 .particles-container {
-    position: absolute;
+    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
     pointer-events: none;
-    z-index: 1;
+    z-index: 0;
 }
 
 .particle {
@@ -200,12 +202,12 @@ p {
 .btn-outline {
     background: transparent;
     color: var(--white);
-    border-color: var(--gray-dark);
+    border-color: var(--border-color);
 }
 
 .btn-secondary:hover,
 .btn-outline:hover {
-    border-color: var(--white);
+    border-color: var(--border-hover);
 }
 
 .btn-large {
@@ -308,7 +310,7 @@ p {
     font-size: 13px;
     margin-bottom: 32px;
     padding: 8px 16px;
-    border: 1px solid var(--gray-dark);
+    border: 1px solid var(--border-color);
     border-radius: 100px;
     background: transparent;
 }
@@ -339,8 +341,8 @@ p {
     display: flex;
     gap: 64px;
     padding: 48px 0;
-    border-top: 1px solid var(--gray-dark);
-    border-bottom: 1px solid var(--gray-dark);
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .stat {
@@ -375,20 +377,20 @@ p {
 }
 
 .features {
-    border-top: 1px solid var(--gray-dark);
+    border-top: 1px solid var(--border-color);
 }
 
 /* FEATURES GRID */
 .features-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    border: 1px solid var(--gray-dark);
+    border: 1px solid var(--border-color);
 }
 
 .feature-card {
     padding: 48px 32px;
-    border-right: 1px solid var(--gray-dark);
-    border-bottom: 1px solid var(--gray-dark);
+    border-right: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
     background: transparent;
     transition: background 0.2s;
 }
@@ -403,7 +405,7 @@ p {
 
 .feature-card:hover {
     background: rgba(255, 255, 255, 0.04);
-    border-color: var(--gray);
+    border-color: var(--border-hover);
 }
 
 .feature-icon {
@@ -425,7 +427,7 @@ p {
 
 /* DEMO */
 .demo {
-    border-top: 1px solid var(--gray-dark);
+    border-top: 1px solid var(--border-color);
 }
 
 .demo-desc {
@@ -436,7 +438,7 @@ p {
 .demo-video {
     max-width: 700px;
     margin: 0 auto;
-    border: 1px solid var(--gray-dark);
+    border: 1px solid var(--border-color);
 }
 
 .demo-video video {
@@ -446,7 +448,7 @@ p {
 
 /* PRICING */
 .pricing {
-    border-top: 1px solid var(--gray-dark);
+    border-top: 1px solid var(--border-color);
 }
 
 .pricing-desc {
@@ -458,12 +460,12 @@ p {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 0;
-    border: 1px solid var(--gray-dark);
+    border: 1px solid var(--border-color);
 }
 
 .pricing-card {
     padding: 40px 28px;
-    border-right: 1px solid var(--gray-dark);
+    border-right: 1px solid var(--border-color);
     background: transparent;
     display: flex;
     flex-direction: column;
@@ -529,7 +531,7 @@ p {
 
 .pricing-features li {
     padding: 12px 0;
-    border-bottom: 1px solid var(--gray-dark);
+    border-bottom: 1px solid var(--border-color);
     color: var(--gray);
     font-size: 14px;
 }
@@ -545,11 +547,11 @@ p {
 
 /* REFERRAL */
 .referral {
-    border-top: 1px solid var(--gray-dark);
+    border-top: 1px solid var(--border-color);
 }
 
 .referral-content {
-    border: 1px solid var(--gray-dark);
+    border: 1px solid var(--border-color);
     padding: 80px 60px;
     text-align: center;
     background: transparent;
@@ -575,7 +577,7 @@ p {
     align-items: center;
     gap: 12px;
     padding: 16px 24px;
-    border: 1px solid var(--gray-dark);
+    border: 1px solid var(--border-color);
     background: transparent;
     color: var(--gray);
     font-size: 14px;
@@ -599,13 +601,13 @@ p {
 
 /* PAYMENT */
 .payment {
-    border-top: 1px solid var(--gray-dark);
+    border-top: 1px solid var(--border-color);
 }
 
 .payment-card {
     max-width: 600px;
     margin: 0 auto;
-    border: 1px solid var(--gray-dark);
+    border: 1px solid var(--border-color);
     padding: 60px;
     text-align: center;
     background: transparent;
@@ -639,7 +641,7 @@ p {
 /* CTA */
 .cta {
     text-align: center;
-    border-top: 1px solid var(--gray-dark);
+    border-top: 1px solid var(--border-color);
 }
 
 .cta p {
@@ -650,7 +652,7 @@ p {
 /* FOOTER */
 .footer {
     padding: 60px 0 40px;
-    border-top: 1px solid var(--gray-dark);
+    border-top: 1px solid var(--border-color);
 }
 
 .footer-content {
@@ -660,7 +662,7 @@ p {
     flex-wrap: wrap;
     gap: 24px;
     padding-bottom: 40px;
-    border-bottom: 1px solid var(--gray-dark);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .footer-logo {
@@ -717,7 +719,7 @@ p {
     }
 
     .pricing-card:nth-child(3) {
-        border-right: 1px solid var(--gray-dark);
+        border-right: 1px solid var(--border-color);
     }
 
     .features-grid {
@@ -729,7 +731,7 @@ p {
     }
 
     .feature-card:nth-child(3) {
-        border-right: 1px solid var(--gray-dark);
+        border-right: 1px solid var(--border-color);
     }
 }
 

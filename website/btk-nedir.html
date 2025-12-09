@@ -192,16 +192,24 @@
 </head>
 
 <body>
+    <!-- Particles Effect - Full Page -->
+    <div class="particles-container" id="particles"></div>
+
+    <!-- Mouse Glow Effect -->
+    <div class="mouse-glow" id="mouseGlow"></div>
+
     <!-- Navigation -->
     <nav class="nav">
-        <a href="/" class="nav-logo">
-            <img src="favicon.svg" alt="BTK Sorgu Logo" class="logo-icon" style="width: 28px; height: 28px;">
-            <span class="logo-text">BTK Sorgu</span>
-        </a>
-        <div class="nav-links">
-            <a href="/#features">Özellikler</a>
-            <a href="/#pricing">Paketler</a>
-            <a href="/btk-nedir.html">Blog</a>
+        <div class="nav-left">
+            <a href="/" class="nav-logo">
+                <img src="favicon.svg" alt="BTK Sorgu Logo" class="logo-icon" style="width: 28px; height: 28px;">
+                <span class="logo-text">BTK Sorgu</span>
+            </a>
+            <div class="nav-links">
+                <a href="/#features">Özellikler</a>
+                <a href="/#pricing">Paketler</a>
+                <a href="/btk-nedir.html">Blog</a>
+            </div>
         </div>
         <a href="https://t.me/tibktt_bot" class="nav-cta">Botu Başlat →</a>
     </nav>
@@ -314,6 +322,31 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        // Mouse-following glow effect (instant)
+        const glow = document.getElementById('mouseGlow');
+
+        document.addEventListener('mousemove', (e) => {
+            glow.style.left = e.clientX + 'px';
+            glow.style.top = (e.clientY + window.scrollY) + 'px';
+        });
+
+        // Particles effect
+        const particlesContainer = document.getElementById('particles');
+        const particleCount = 80;
+
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 15 + 's';
+            particle.style.animationDuration = (10 + Math.random() * 10) + 's';
+            particle.style.width = (2 + Math.random() * 4) + 'px';
+            particle.style.height = particle.style.width;
+            particlesContainer.appendChild(particle);
+        }
+    </script>
 </body>
 
 </html>
