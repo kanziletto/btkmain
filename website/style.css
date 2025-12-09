@@ -36,9 +36,9 @@ body {
 /* MOUSE GLOW EFFECT */
 .mouse-glow {
     position: absolute;
-    width: 600px;
-    height: 600px;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
     border-radius: 50%;
     pointer-events: none;
     transform: translate(-50%, -50%);
@@ -64,8 +64,9 @@ h4 {
 }
 
 h1 {
-    font-size: clamp(48px, 8vw, 80px);
-    margin-bottom: 24px;
+    font-size: clamp(56px, 10vw, 96px);
+    margin-bottom: 32px;
+    font-weight: 600;
 }
 
 h2 {
@@ -235,10 +236,10 @@ p {
 }
 
 .hero-desc {
-    font-size: 18px;
+    font-size: 20px;
     color: var(--gray);
-    max-width: 600px;
-    margin-bottom: 48px;
+    max-width: 650px;
+    margin-bottom: 56px;
     line-height: 1.7;
 }
 
@@ -264,10 +265,10 @@ p {
 
 .stat-number {
     display: block;
-    font-size: 32px;
-    font-weight: 500;
+    font-size: 40px;
+    font-weight: 600;
     color: var(--white);
-    margin-bottom: 4px;
+    margin-bottom: 8px;
     background: none;
     -webkit-text-fill-color: initial;
 }
@@ -317,13 +318,15 @@ p {
 }
 
 .feature-card:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.04);
+    border-color: var(--gray);
 }
 
 .feature-icon {
-    font-size: 28px;
-    margin-bottom: 24px;
-    filter: grayscale(100%);
+    font-size: 32px;
+    margin-bottom: 28px;
+    filter: grayscale(100%) brightness(0.9);
+    opacity: 0.8;
 }
 
 .feature-card h3 {
@@ -381,7 +384,7 @@ p {
     display: flex;
     flex-direction: column;
     position: relative;
-    transition: background 0.2s;
+    transition: all 0.3s ease;
 }
 
 .pricing-card:last-child {
@@ -389,7 +392,8 @@ p {
 }
 
 .pricing-card:hover {
-    background: rgba(255, 255, 255, 0.02);
+    background: rgba(255, 255, 255, 0.04);
+    transform: translateY(-4px);
 }
 
 .pricing-card.popular {
@@ -420,11 +424,12 @@ p {
 }
 
 .price {
-    font-size: 40px;
-    font-weight: 500;
+    font-size: 48px;
+    font-weight: 600;
     color: var(--white);
     background: none;
     -webkit-text-fill-color: initial;
+    line-height: 1;
 }
 
 .price-period {

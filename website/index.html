@@ -413,28 +413,13 @@
     <div class="mouse-glow" id="mouseGlow"></div>
 
     <script>
-        // Mouse-following glow effect
+        // Mouse-following glow effect (instant)
         const glow = document.getElementById('mouseGlow');
-        let mouseX = 0, mouseY = 0;
-        let glowX = 0, glowY = 0;
 
         document.addEventListener('mousemove', (e) => {
-            mouseX = e.clientX;
-            mouseY = e.clientY + window.scrollY;
+            glow.style.left = e.clientX + 'px';
+            glow.style.top = (e.clientY + window.scrollY) + 'px';
         });
-
-        function animateGlow() {
-            // Smooth follow effect
-            glowX += (mouseX - glowX) * 0.1;
-            glowY += (mouseY - glowY) * 0.1;
-
-            glow.style.left = glowX + 'px';
-            glow.style.top = glowY + 'px';
-
-            requestAnimationFrame(animateGlow);
-        }
-
-        animateGlow();
     </script>
 </body>
 
