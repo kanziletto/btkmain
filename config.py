@@ -50,28 +50,28 @@ SUBSCRIPTION_DURATIONS = {
     "1m": {
         "label": "1 Ay", 
         "days": 30, 
-        "price": 60, 
+        "price": 75, 
         "domains": 5, 
         "features": ["auto_scan", "notifications", "manual_query"]
     },
     "3m": {
         "label": "3 Ay", 
         "days": 90, 
-        "price": 160,  # $53/ay
+        "price": 200,  # $67/ay
         "domains": 10, 
         "features": ["auto_scan", "notifications", "manual_query"]
     },
     "6m": {
         "label": "6 Ay", 
         "days": 180, 
-        "price": 300,  # $50/ay
+        "price": 400,  # $67/ay
         "domains": 15, 
         "features": ["auto_scan", "notifications", "manual_query", "integration"]
     },
     "12m": {
         "label": "12 Ay", 
         "days": 365, 
-        "price": 500,  # $42/ay
+        "price": 700,  # $58/ay
         "domains": 25, 
         "features": ["auto_scan", "notifications", "manual_query", "integration"]
     }
