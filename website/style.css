@@ -23,6 +23,58 @@ body {
     background: var(--bg-dark);
     color: var(--text-primary);
     line-height: 1.6;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Aurora/Northern Lights Effect */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background:
+        linear-gradient(45deg, transparent 30%, rgba(99, 102, 241, 0.08) 50%, transparent 70%),
+        linear-gradient(-45deg, transparent 30%, rgba(14, 165, 233, 0.06) 50%, transparent 70%),
+        linear-gradient(90deg, transparent 20%, rgba(168, 85, 247, 0.05) 50%, transparent 80%);
+    background-size: 200% 200%, 200% 200%, 200% 200%;
+    animation: aurora 15s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes aurora {
+
+    0%,
+    100% {
+        background-position: 0% 50%, 100% 50%, 50% 0%;
+    }
+
+    25% {
+        background-position: 100% 50%, 0% 100%, 0% 50%;
+    }
+
+    50% {
+        background-position: 50% 100%, 50% 0%, 100% 100%;
+    }
+
+    75% {
+        background-position: 0% 0%, 100% 100%, 50% 50%;
+    }
+}
+
+/* Matrix Rain Canvas (Hero Only) */
+#matrixRain {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.12;
 }
 
 .container {
@@ -119,6 +171,8 @@ h3 {
     padding: 20px 40px;
     max-width: 1400px;
     margin: 0 auto;
+    position: relative;
+    z-index: 10;
 }
 
 .nav-logo {

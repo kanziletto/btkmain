@@ -8,8 +8,7 @@
 
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
-    <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="apple-touch-icon" href="favicon.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
 
     <!-- Primary Meta Tags -->
     <title>BTK Sorgu | TİB Domain Sorgulama Botu - Anlık Engelleme Kontrolü 2025</title>
@@ -59,7 +58,7 @@
         "name": "BTK Sorgu",
         "alternateName": "BTK Sorgu Bot",
         "url": "https://btksorgu.net",
-        "logo": "https://btksorgu.net/favicon.png",
+        "logo": "https://btksorgu.net/favicon.svg",
         "image": "https://btksorgu.net/og-image.png",
         "description": "BTK ve TİB domain engelleme sorgulama servisi",
         "sameAs": [
@@ -102,7 +101,7 @@
         "operatingSystem": "Telegram",
         "description": "BTK ve TİB domain engelleme sorgulama botu. Domainlerinizi 7/24 otomatik kontrol edin ve engelleme anında bildirim alın.",
         "url": "https://btksorgu.net",
-        "image": "https://btksorgu.net/favicon.png",
+        "image": "https://btksorgu.net/favicon.svg",
         "author": {
             "@type": "Organization",
             "name": "BTK Sorgu"
@@ -165,19 +164,8 @@
 <body>
     <!-- Hero Section -->
     <section class="hero">
-        <!-- Floating Geometric Shapes -->
-        <div class="floating-shapes">
-            <div class="shape shape-1"></div>
-            <div class="shape shape-2"></div>
-            <div class="shape shape-3"></div>
-            <div class="shape shape-4"></div>
-            <div class="shape shape-5"></div>
-            <div class="shape shape-6"></div>
-            <div class="shape shape-7"></div>
-            <div class="shape shape-8"></div>
-            <div class="shape-line shape-line-1"></div>
-            <div class="shape-line shape-line-2"></div>
-        </div>
+        <!-- Matrix Code Rain (Hero Only) -->
+        <canvas id="matrixRain"></canvas>
 
         <nav class="nav">
             <div class="nav-logo">
@@ -418,6 +406,59 @@
     <a href="https://t.me/londonlondon25" class="floating-support" target="_blank">
         💬 Destek
     </a>
+
+    <script>
+        // Matrix Rain Effect (Hero Only)
+        const canvas = document.getElementById('matrixRain');
+        const ctx = canvas.getContext('2d');
+        const hero = document.querySelector('.hero');
+
+        function resizeCanvas() {
+            canvas.width = hero.offsetWidth;
+            canvas.height = hero.offsetHeight;
+        }
+        resizeCanvas();
+
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()';
+        const charArray = chars.split('');
+        const fontSize = 14;
+        let columns = canvas.width / fontSize;
+        let drops = [];
+
+        function initDrops() {
+            columns = canvas.width / fontSize;
+            drops = [];
+            for (let i = 0; i < columns; i++) {
+                drops[i] = Math.random() * -50;
+            }
+        }
+        initDrops();
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.05)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = '#6366f1';
+            ctx.font = fontSize + 'px monospace';
+
+            for (let i = 0; i < drops.length; i++) {
+                const char = charArray[Math.floor(Math.random() * charArray.length)];
+                ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+        }
+
+        setInterval(drawMatrix, 50);
+
+        window.addEventListener('resize', () => {
+            resizeCanvas();
+            initDrops();
+        });
+    </script>
 </body>
 
 </html>
