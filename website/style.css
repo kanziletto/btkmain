@@ -571,7 +571,31 @@ html {
     border-radius: 20px;
     overflow: hidden;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
-    border: 2px solid var(--border);
+    position: relative;
+    border: none;
+}
+
+.demo-video::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    padding: 2px;
+    background: conic-gradient(from var(--angle, 0deg),
+            transparent 0%,
+            transparent 30%,
+            #6366f1 40%,
+            #0ea5e9 50%,
+            #6366f1 60%,
+            transparent 70%,
+            transparent 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: snakeRotate 3s linear infinite;
+    z-index: 1;
+    pointer-events: none;
 }
 
 .demo-video video {
@@ -786,10 +810,45 @@ html {
     max-width: 700px;
     margin: 40px auto 0;
     background: var(--bg-card);
-    border: 1px solid var(--border);
     border-radius: 20px;
     padding: 48px;
     text-align: center;
+    position: relative;
+    border: none;
+    overflow: hidden;
+}
+
+.payment-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 20px;
+    padding: 2px;
+    background: conic-gradient(from var(--angle, 0deg),
+            transparent 0%,
+            transparent 30%,
+            #6366f1 40%,
+            #0ea5e9 50%,
+            #6366f1 60%,
+            transparent 70%,
+            transparent 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: snakeRotate 3s linear infinite;
+}
+
+@keyframes snakeRotate {
+    to {
+        --angle: 360deg;
+    }
+}
+
+@property --angle {
+    syntax: '<angle>';
+    initial-value: 0deg;
+    inherits: false;
 }
 
 .payment-icon {
