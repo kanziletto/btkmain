@@ -411,8 +411,6 @@ p {
 .feature-icon {
     font-size: 32px;
     margin-bottom: 28px;
-    filter: grayscale(100%) brightness(0.9);
-    opacity: 0.8;
 }
 
 .feature-card h3 {
@@ -616,7 +614,6 @@ p {
 .payment-icon {
     font-size: 48px;
     margin-bottom: 24px;
-    filter: grayscale(100%);
 }
 
 .payment-card h3 {
