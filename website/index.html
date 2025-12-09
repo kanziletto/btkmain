@@ -168,15 +168,17 @@
         <!-- Floating shapes removed for minimalist design -->
 
         <nav class="nav">
-            <div class="nav-logo">
-                <img src="favicon.svg" alt="BTK Sorgu Logo" class="logo-icon" style="width: 28px; height: 28px;">
-                <span class="logo-text">BTK Sorgu</span>
-            </div>
-            <div class="nav-links">
-                <a href="#features">Özellikler</a>
-                <a href="#pricing">Paketler</a>
-                <a href="#referral">Referans</a>
-                <a href="/btk-nedir.html">Blog</a>
+            <div class="nav-left">
+                <div class="nav-logo">
+                    <img src="favicon.svg" alt="BTK Sorgu Logo" class="logo-icon" style="width: 28px; height: 28px;">
+                    <span class="logo-text">BTK Sorgu</span>
+                </div>
+                <div class="nav-links">
+                    <a href="#features">Özellikler</a>
+                    <a href="#pricing">Paketler</a>
+                    <a href="#referral">Referans</a>
+                    <a href="/btk-nedir.html">Blog</a>
+                </div>
             </div>
             <a href="https://t.me/tibktt_bot" class="nav-cta">Botu Başlat →</a>
         </nav>
@@ -406,6 +408,34 @@
     <a href="https://t.me/londonlondon25" class="floating-support" target="_blank">
         💬 Destek
     </a>
+
+    <!-- Mouse Glow Effect -->
+    <div class="mouse-glow" id="mouseGlow"></div>
+
+    <script>
+        // Mouse-following glow effect
+        const glow = document.getElementById('mouseGlow');
+        let mouseX = 0, mouseY = 0;
+        let glowX = 0, glowY = 0;
+
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY + window.scrollY;
+        });
+
+        function animateGlow() {
+            // Smooth follow effect
+            glowX += (mouseX - glowX) * 0.1;
+            glowY += (mouseY - glowY) * 0.1;
+
+            glow.style.left = glowX + 'px';
+            glow.style.top = glowY + 'px';
+
+            requestAnimationFrame(animateGlow);
+        }
+
+        animateGlow();
+    </script>
 </body>
 
 </html>

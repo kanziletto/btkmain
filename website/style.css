@@ -33,6 +33,19 @@ body {
     color: var(--black);
 }
 
+/* MOUSE GLOW EFFECT */
+.mouse-glow {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    z-index: 0;
+    transition: opacity 0.3s;
+}
+
 .container {
     max-width: 1200px;
     margin: 0 auto;
@@ -120,11 +133,21 @@ p {
 /* NAVIGATION */
 .nav {
     display: flex;
-    justify-content: flex-start;
+    justify-content: space-between;
     align-items: center;
-    padding: 24px 40px;
-    max-width: 1400px;
-    margin: 0 auto;
+    padding: 24px 24px;
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    background-color: var(--black);
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 48px;
 }
 
 .nav-logo {
@@ -134,7 +157,6 @@ p {
     font-size: 16px;
     font-weight: 600;
     color: var(--white);
-    margin-right: 48px;
 }
 
 .nav-logo img {
@@ -168,7 +190,6 @@ p {
     font-size: 14px;
     font-weight: 500;
     transition: opacity 0.2s;
-    margin-left: auto;
 }
 
 .nav-cta:hover {
@@ -180,6 +201,8 @@ p {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    padding-top: 80px;
+    /* Space for fixed nav */
 }
 
 .hero-content {
