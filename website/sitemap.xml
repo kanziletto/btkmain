@@ -1,24 +1,34 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+        xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">
   <url>
     <loc>https://btksorgu.net/</loc>
-    <lastmod>2025-12-07</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
       <image:loc>https://btksorgu.net/og-image.png</image:loc>
       <image:title>BTK Sorgu - Domain Takip Botu</image:title>
+      <image:caption>BTK ve TİB domain engelleme sorgulama servisi</image:caption>
     </image:image>
+    <video:video>
+      <video:thumbnail_loc>https://btksorgu.net/og-image.png</video:thumbnail_loc>
+      <video:title>BTK Sorgu Bot Demo - Domain Takibi Nasıl Yapılır?</video:title>
+      <video:description>Telegram üzerinden BTK domain sorgulama botu kullanım videosu.</video:description>
+      <video:content_loc>https://btksorgu.net/demo.mp4</video:content_loc>
+      <video:duration>90</video:duration>
+    </video:video>
   </url>
   <url>
     <loc>https://btksorgu.net/btk-nedir.html</loc>
-    <lastmod>2025-12-07</lastmod>
+    <lastmod>2025-12-10</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
     <image:image>
       <image:loc>https://btksorgu.net/og-image.png</image:loc>
       <image:title>BTK Nedir? Domain Engelleme Rehberi</image:title>
+      <image:caption>Türkiye'de domain engelleme süreci ve BTK hakkında kapsamlı rehber</image:caption>
     </image:image>
   </url>
 </urlset>
