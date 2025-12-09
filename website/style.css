@@ -120,7 +120,7 @@ p {
 /* NAVIGATION */
 .nav {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-start;
     align-items: center;
     padding: 24px 40px;
     max-width: 1400px;
@@ -134,6 +134,7 @@ p {
     font-size: 16px;
     font-weight: 600;
     color: var(--white);
+    margin-right: 48px;
 }
 
 .nav-logo img {
@@ -167,6 +168,7 @@ p {
     font-size: 14px;
     font-weight: 500;
     transition: opacity 0.2s;
+    margin-left: auto;
 }
 
 .nav-cta:hover {
