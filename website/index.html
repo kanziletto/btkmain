@@ -154,6 +154,73 @@
     }
     </script>
 
+    <!-- HowTo Schema - For How It Works Steps -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "HowTo",
+        "name": "BTK Sorgu Bot ile Domain Takibi Nasıl Yapılır?",
+        "description": "Telegram üzerinden BTK domain sorgulama ve otomatik takip sistemi kurma rehberi.",
+        "image": "https://btksorgu.net/og-image.png",
+        "totalTime": "PT2M",
+        "estimatedCost": {
+            "@type": "MonetaryAmount",
+            "currency": "USD",
+            "value": "0"
+        },
+        "step": [
+            {
+                "@type": "HowToStep",
+                "position": 1,
+                "name": "Telegram Botunu Başlat",
+                "text": "Telegram'da @tibktt_bot hesabına gidin ve /baslat yazarak botu aktifleştirin.",
+                "url": "https://t.me/tibktt_bot"
+            },
+            {
+                "@type": "HowToStep",
+                "position": 2,
+                "name": "Domain Ekleyin",
+                "text": "Takip etmek istediğiniz domain adreslerini bota gönderin. Örnek: example.com"
+            },
+            {
+                "@type": "HowToStep",
+                "position": 3,
+                "name": "Otomatik Takip Başlasın",
+                "text": "Bot domainlerinizi 7/24 otomatik olarak kontrol etmeye başlar."
+            },
+            {
+                "@type": "HowToStep",
+                "position": 4,
+                "name": "Anlık Bildirim Alın",
+                "text": "Domain engellendiğinde anında Telegram üzerinden bildirim alırsınız."
+            }
+        ]
+    }
+    </script>
+
+    <!-- VideoObject Schema - For Demo Video -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@type": "VideoObject",
+        "name": "BTK Sorgu Bot Demo - Domain Takibi Nasıl Yapılır?",
+        "description": "Telegram üzerinden BTK domain sorgulama botu kullanım videosu. Domain ekleme, takip ve anlık bildirim alma adımları.",
+        "thumbnailUrl": "https://btksorgu.net/og-image.png",
+        "uploadDate": "2025-12-01",
+        "duration": "PT1M30S",
+        "contentUrl": "https://btksorgu.net/demo.mp4",
+        "embedUrl": "https://btksorgu.net/demo.mp4",
+        "publisher": {
+            "@type": "Organization",
+            "name": "BTK Sorgu",
+            "logo": {
+                "@type": "ImageObject",
+                "url": "https://btksorgu.net/favicon.svg"
+            }
+        }
+    }
+    </script>
+
     <!-- Fonts & Styles -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
