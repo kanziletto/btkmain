@@ -28,6 +28,88 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+/* GRADIENT MESH + PARTICLES EFFECT */
+
+/* Animated Gradient Mesh Background */
+.hero::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background:
+        radial-gradient(ellipse at 15% 15%, rgba(6, 182, 212, 0.25) 0%, transparent 45%),
+        radial-gradient(ellipse at 85% 20%, rgba(139, 92, 246, 0.2) 0%, transparent 45%),
+        radial-gradient(ellipse at 75% 85%, rgba(59, 130, 246, 0.18) 0%, transparent 45%),
+        radial-gradient(ellipse at 10% 80%, rgba(168, 85, 247, 0.15) 0%, transparent 45%);
+    animation: meshMove 10s ease-in-out infinite;
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes meshMove {
+
+    0%,
+    100% {
+        transform: translate(0%, 0%) rotate(0deg);
+    }
+
+    25% {
+        transform: translate(3%, 3%) rotate(1deg);
+    }
+
+    50% {
+        transform: translate(0%, 6%) rotate(0deg);
+    }
+
+    75% {
+        transform: translate(-3%, 3%) rotate(-1deg);
+    }
+}
+
+/* Particles Container */
+.particles-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.particle {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    background: rgba(6, 182, 212, 0.9);
+    border-radius: 50%;
+    animation: floatUp 15s linear infinite;
+    box-shadow: 0 0 12px rgba(6, 182, 212, 0.7);
+}
+
+@keyframes floatUp {
+    0% {
+        transform: translateY(100vh) scale(0);
+        opacity: 0;
+    }
+
+    10% {
+        opacity: 1;
+    }
+
+    90% {
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(-100vh) scale(1);
+        opacity: 0;
+    }
+}
+
 ::selection {
     background: var(--white);
     color: var(--black);
@@ -38,7 +120,7 @@ body {
     position: absolute;
     width: 80px;
     height: 80px;
-    background: radial-gradient(circle, rgba(59, 130, 246, 0.2) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(0, 0, 0, 0.8) 0%, transparent 70%);
     border-radius: 50%;
     pointer-events: none;
     transform: translate(-50%, -50%);
@@ -203,6 +285,8 @@ p {
     display: flex;
     flex-direction: column;
     padding-top: 80px;
+    position: relative;
+    overflow: hidden;
     /* Space for fixed nav */
 }
 

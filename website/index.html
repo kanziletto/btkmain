@@ -165,7 +165,8 @@
 <body>
     <!-- Hero Section -->
     <section class="hero">
-        <!-- Floating shapes removed for minimalist design -->
+        <!-- Particles Effect -->
+        <div class="particles-container" id="particles"></div>
 
         <nav class="nav">
             <div class="nav-left">
@@ -420,6 +421,21 @@
             glow.style.left = e.clientX + 'px';
             glow.style.top = (e.clientY + window.scrollY) + 'px';
         });
+
+        // Particles effect
+        const particlesContainer = document.getElementById('particles');
+        const particleCount = 80;
+
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 15 + 's';
+            particle.style.animationDuration = (10 + Math.random() * 10) + 's';
+            particle.style.width = (2 + Math.random() * 4) + 'px';
+            particle.style.height = particle.style.width;
+            particlesContainer.appendChild(particle);
+        }
     </script>
 </body>
 
