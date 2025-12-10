@@ -89,10 +89,6 @@ MESSAGES = {
         "**🎁 Referans Programı**\n"
         "Arkadaşını davet et → +7 gün bonus kazan!\n"
         "/referans ile linkini al.\n\n"
-        
-        "**❓ Sorular**\n"
-        "**HATA uyarısı?** → Sistem otomatik tekrar dener.\n"
-        "**Domain formatı?** → `site.com` (https:// olmadan)"
     ),
     
     "add_prompt": "✍️ **Eklenecek domainleri yazın:**\n(Tekli, virgüllü veya .txt dosyası gönderebilirsiniz)",
