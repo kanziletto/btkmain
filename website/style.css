@@ -1105,3 +1105,15 @@ html {
 .marquee-container.reverse .marquee-track {
     animation-direction: reverse;
 }
+
+/* Dark Marquee Variant */
+.marquee-container.dark {
+    background: linear-gradient(90deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+}
+
+.marquee-container.dark .marquee-item {
+    background: linear-gradient(90deg, #2dd4bf 0%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
