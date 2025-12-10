@@ -636,7 +636,7 @@
         });
     </script>
 
-    <!-- Marquee Drag Functionality with Smooth Momentum -->
+    <!-- Marquee Drag Functionality with Infinite Loop -->
     <script>
         document.querySelectorAll('.marquee-container').forEach(container => {
             const track = container.querySelector('.marquee-track');
@@ -648,20 +648,35 @@
             let lastTime = 0;
             let animationId = null;
 
-            function smoothRelease() {
-                if (Math.abs(velocity) < 0.5) {
+            // Get half width of track for infinite wrap
+            const getHalfWidth = () => track.scrollWidth / 2;
+
+            // Wrap position for infinite loop
+            function wrapPosition(pos) {
+                const halfWidth = getHalfWidth();
+                // Wrap around when exceeding bounds
+                if (pos > 0) {
+                    return pos - halfWidth;
+                } else if (pos < -halfWidth) {
+                    return pos + halfWidth;
+                }
+                return pos;
+            }
+
+            function infiniteScroll() {
+                if (Math.abs(velocity) < 0.3) {
                     // Velocity is low enough, resume auto-scroll
-                    track.style.transition = 'none';
                     track.style.animation = '';
                     track.style.transform = '';
                     return;
                 }
 
-                // Apply momentum
+                // Apply momentum with infinite wrap
                 currentTranslate += velocity;
-                velocity *= 0.95; // Friction
+                currentTranslate = wrapPosition(currentTranslate);
+                velocity *= 0.96; // Friction
                 track.style.transform = `translateX(${currentTranslate}px)`;
-                animationId = requestAnimationFrame(smoothRelease);
+                animationId = requestAnimationFrame(infiniteScroll);
             }
 
             function stopDrag() {
@@ -669,9 +684,9 @@
                     isDragging = false;
                     container.classList.remove('dragging');
 
-                    // Start smooth momentum
+                    // Start smooth momentum with infinite loop
                     if (animationId) cancelAnimationFrame(animationId);
-                    smoothRelease();
+                    infiniteScroll();
                 }
             }
 
@@ -697,15 +712,23 @@
                 const now = Date.now();
                 const dt = now - lastTime;
                 if (dt > 0) {
-                    velocity = (x - lastX) / dt * 16; // Normalize to ~60fps
+                    velocity = (x - lastX) / dt * 16;
                 }
                 lastX = x;
                 lastTime = now;
                 const walk = (x - startX) * 1.5;
-                track.style.transform = `translateX(${currentTranslate + walk}px)`;
+                let newPos = currentTranslate + walk;
+                newPos = wrapPosition(newPos);
+                track.style.transform = `translateX(${newPos}px)`;
             });
 
-            container.addEventListener('mouseup', stopDrag);
+            container.addEventListener('mouseup', (e) => {
+                if (isDragging) {
+                    const walk = (e.pageX - startX) * 1.5;
+                    currentTranslate = wrapPosition(currentTranslate + walk);
+                }
+                stopDrag();
+            });
             container.addEventListener('mouseleave', stopDrag);
 
             // Touch support
@@ -735,14 +758,18 @@
                 lastX = x;
                 lastTime = now;
                 const walk = (x - startX) * 1.5;
-                track.style.transform = `translateX(${currentTranslate + walk}px)`;
+                let newPos = currentTranslate + walk;
+                newPos = wrapPosition(newPos);
+                track.style.transform = `translateX(${newPos}px)`;
             });
 
-            container.addEventListener('touchend', () => {
-                isDragging = false;
-                container.classList.remove('dragging');
-                track.style.animation = '';
-                track.style.transform = '';
+            container.addEventListener('touchend', (e) => {
+                if (isDragging) {
+                    const touch = e.changedTouches[0];
+                    const walk = (touch.pageX - startX) * 1.5;
+                    currentTranslate = wrapPosition(currentTranslate + walk);
+                }
+                stopDrag();
             });
         });
     </script>
