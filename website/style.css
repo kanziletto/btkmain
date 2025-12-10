@@ -1044,8 +1044,8 @@ html {
 .marquee-container {
     width: 100%;
     overflow: hidden;
-    background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 50%, var(--primary) 100%);
-    padding: 16px 0;
+    background: linear-gradient(90deg, #e0f7f4 0%, #f0fdf9 50%, #e0f7f4 100%);
+    padding: 20px 0;
     position: relative;
     cursor: grab;
     user-select: none;
@@ -1057,8 +1057,8 @@ html {
 
 .marquee-track {
     display: flex;
-    gap: 80px;
-    animation: marqueeScroll 30s linear infinite;
+    gap: 60px;
+    animation: marqueeScroll 25s linear infinite;
     width: max-content;
 }
 
@@ -1073,19 +1073,22 @@ html {
 .marquee-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    font-size: 1rem;
-    font-weight: 600;
-    color: white;
+    gap: 16px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #14b8a6 0%, #6366f1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
     white-space: nowrap;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 2px;
 }
 
 .marquee-item::before {
-    content: '★';
-    font-size: 0.8rem;
-    opacity: 0.8;
+    content: '📢';
+    font-size: 1.2rem;
+    -webkit-text-fill-color: initial;
 }
 
 @keyframes marqueeScroll {
@@ -1099,12 +1102,6 @@ html {
 }
 
 /* Marquee Variations */
-.marquee-container.dark {
-    background: linear-gradient(90deg, #1e293b 0%, #334155 50%, #1e293b 100%);
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-}
-
 .marquee-container.reverse .marquee-track {
     animation-direction: reverse;
 }
