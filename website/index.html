@@ -308,22 +308,16 @@
     <!-- Marquee Banner 1 -->
     <div class="marquee-container" id="marquee1">
         <div class="marquee-track">
-            <span class="marquee-item">BTK Sorgu Botu</span>
-            <span class="marquee-item">TİB Sorgu Botu</span>
-            <span class="marquee-item">7/24 Otomatik Takip</span>
-            <span class="marquee-item">Anlık Telegram Bildirimi</span>
-            <span class="marquee-item">48 Saat Ücretsiz Deneme</span>
-            <span class="marquee-item">BTK Sorgu</span>
-            <span class="marquee-item">TİB Sorgu</span>
-            <span class="marquee-item">Domain Engelleme Kontrolü</span>
-            <span class="marquee-item">BTK Sorgu Botu</span>
-            <span class="marquee-item">TİB Sorgu Botu</span>
-            <span class="marquee-item">7/24 Otomatik Takip</span>
-            <span class="marquee-item">Anlık Telegram Bildirimi</span>
-            <span class="marquee-item">48 Saat Ücretsiz Deneme</span>
-            <span class="marquee-item">BTK Sorgu</span>
-            <span class="marquee-item">TİB Sorgu</span>
-            <span class="marquee-item">Domain Engelleme Kontrolü</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
         </div>
     </div>
 
@@ -365,28 +359,6 @@
             </div>
         </div>
     </section>
-
-    <!-- Marquee Banner 2 (Dark, Reverse) -->
-    <div class="marquee-container dark reverse" id="marquee2">
-        <div class="marquee-track">
-            <span class="marquee-item">BTK Botu</span>
-            <span class="marquee-item">TİB Botu</span>
-            <span class="marquee-item">Oto-Geçiş Özelliği</span>
-            <span class="marquee-item">Ekran Görüntüsü Kanıtı</span>
-            <span class="marquee-item">Manuel Sorgu</span>
-            <span class="marquee-item">Grup Bildirimi</span>
-            <span class="marquee-item">BTK Sorgu Botu</span>
-            <span class="marquee-item">TİB Sorgu Botu</span>
-            <span class="marquee-item">BTK Botu</span>
-            <span class="marquee-item">TİB Botu</span>
-            <span class="marquee-item">Oto-Geçiş Özelliği</span>
-            <span class="marquee-item">Ekran Görüntüsü Kanıtı</span>
-            <span class="marquee-item">Manuel Sorgu</span>
-            <span class="marquee-item">Grup Bildirimi</span>
-            <span class="marquee-item">BTK Sorgu Botu</span>
-            <span class="marquee-item">TİB Sorgu Botu</span>
-        </div>
-    </div>
 
     <!-- Demo Video Section -->
     <section class="demo" id="demo">
@@ -664,19 +636,53 @@
         });
     </script>
 
-    <!-- Marquee Drag Functionality -->
+    <!-- Marquee Drag Functionality with Smooth Momentum -->
     <script>
         document.querySelectorAll('.marquee-container').forEach(container => {
             const track = container.querySelector('.marquee-track');
             let isDragging = false;
             let startX;
-            let scrollLeft;
             let currentTranslate = 0;
+            let velocity = 0;
+            let lastX = 0;
+            let lastTime = 0;
+            let animationId = null;
+
+            function smoothRelease() {
+                if (Math.abs(velocity) < 0.5) {
+                    // Velocity is low enough, resume auto-scroll
+                    track.style.transition = 'none';
+                    track.style.animation = '';
+                    track.style.transform = '';
+                    return;
+                }
+
+                // Apply momentum
+                currentTranslate += velocity;
+                velocity *= 0.95; // Friction
+                track.style.transform = `translateX(${currentTranslate}px)`;
+                animationId = requestAnimationFrame(smoothRelease);
+            }
+
+            function stopDrag() {
+                if (isDragging) {
+                    isDragging = false;
+                    container.classList.remove('dragging');
+
+                    // Start smooth momentum
+                    if (animationId) cancelAnimationFrame(animationId);
+                    smoothRelease();
+                }
+            }
 
             container.addEventListener('mousedown', (e) => {
+                if (animationId) cancelAnimationFrame(animationId);
                 isDragging = true;
                 container.classList.add('dragging');
                 startX = e.pageX;
+                lastX = e.pageX;
+                lastTime = Date.now();
+                velocity = 0;
                 const style = window.getComputedStyle(track);
                 const matrix = new DOMMatrix(style.transform);
                 currentTranslate = matrix.m41;
@@ -688,33 +694,29 @@
                 if (!isDragging) return;
                 e.preventDefault();
                 const x = e.pageX;
-                const walk = (x - startX) * 2;
+                const now = Date.now();
+                const dt = now - lastTime;
+                if (dt > 0) {
+                    velocity = (x - lastX) / dt * 16; // Normalize to ~60fps
+                }
+                lastX = x;
+                lastTime = now;
+                const walk = (x - startX) * 1.5;
                 track.style.transform = `translateX(${currentTranslate + walk}px)`;
             });
 
-            container.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    container.classList.remove('dragging');
-                    track.style.animation = '';
-                    track.style.transform = '';
-                }
-            });
-
-            container.addEventListener('mouseleave', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    container.classList.remove('dragging');
-                    track.style.animation = '';
-                    track.style.transform = '';
-                }
-            });
+            container.addEventListener('mouseup', stopDrag);
+            container.addEventListener('mouseleave', stopDrag);
 
             // Touch support
             container.addEventListener('touchstart', (e) => {
+                if (animationId) cancelAnimationFrame(animationId);
                 isDragging = true;
                 container.classList.add('dragging');
                 startX = e.touches[0].pageX;
+                lastX = e.touches[0].pageX;
+                lastTime = Date.now();
+                velocity = 0;
                 const style = window.getComputedStyle(track);
                 const matrix = new DOMMatrix(style.transform);
                 currentTranslate = matrix.m41;
@@ -725,7 +727,14 @@
             container.addEventListener('touchmove', (e) => {
                 if (!isDragging) return;
                 const x = e.touches[0].pageX;
-                const walk = (x - startX) * 2;
+                const now = Date.now();
+                const dt = now - lastTime;
+                if (dt > 0) {
+                    velocity = (x - lastX) / dt * 16;
+                }
+                lastX = x;
+                lastTime = now;
+                const walk = (x - startX) * 1.5;
                 track.style.transform = `translateX(${currentTranslate + walk}px)`;
             });
 
