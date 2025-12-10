@@ -360,6 +360,22 @@
         </div>
     </section>
 
+    <!-- Marquee Banner -->
+    <div class="marquee-container">
+        <div class="marquee-track">
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+        </div>
+    </div>
+
     <!-- Demo Video Section -->
     <section class="demo" id="demo">
         <div class="container">
@@ -373,6 +389,22 @@
             </div>
         </div>
     </section>
+
+    <!-- Marquee Banner -->
+    <div class="marquee-container">
+        <div class="marquee-track">
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+        </div>
+    </div>
 
     <!-- Pricing Section -->
     <section class="pricing" id="pricing">
@@ -445,6 +477,22 @@
         </div>
     </section>
 
+    <!-- Marquee Banner -->
+    <div class="marquee-container">
+        <div class="marquee-track">
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+        </div>
+    </div>
+
     <!-- Referral Section -->
     <section class="referral" id="referral">
         <div class="container">
@@ -473,6 +521,22 @@
         </div>
     </section>
 
+    <!-- Marquee Banner -->
+    <div class="marquee-container">
+        <div class="marquee-track">
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+        </div>
+    </div>
+
     <!-- Payment Section -->
     <section class="payment" id="payment">
         <div class="container">
@@ -493,6 +557,22 @@
             </div>
         </div>
     </section>
+
+    <!-- Marquee Banner -->
+    <div class="marquee-container">
+        <div class="marquee-track">
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+            <span class="marquee-item">BTK TİB DOMAIN SORGU</span>
+        </div>
+    </div>
 
     <!-- FAQ Section -->
     <section class="faq" id="faq">
@@ -636,73 +716,67 @@
         });
     </script>
 
-    <!-- Marquee Drag Functionality with Infinite Loop -->
+    <!-- Marquee - Full JavaScript Control -->
     <script>
         document.querySelectorAll('.marquee-container').forEach(container => {
             const track = container.querySelector('.marquee-track');
             let isDragging = false;
-            let startX;
-            let currentTranslate = 0;
+            let startX = 0;
+            let currentX = 0;
             let velocity = 0;
             let lastX = 0;
             let lastTime = 0;
             let animationId = null;
+            let autoScrollSpeed = -1;
 
-            // Get half width of track for infinite wrap
             const getHalfWidth = () => track.scrollWidth / 2;
 
-            // Wrap position for infinite loop
-            function wrapPosition(pos) {
+            function wrapPosition() {
                 const halfWidth = getHalfWidth();
-                // Wrap around when exceeding bounds
-                if (pos > 0) {
-                    return pos - halfWidth;
-                } else if (pos < -halfWidth) {
-                    return pos + halfWidth;
-                }
-                return pos;
+                if (currentX > 0) currentX -= halfWidth;
+                if (currentX < -halfWidth) currentX += halfWidth;
             }
 
-            function infiniteScroll() {
-                if (Math.abs(velocity) < 0.3) {
-                    // Velocity is low enough, resume auto-scroll
-                    track.style.animation = '';
-                    track.style.transform = '';
+            function autoScroll() {
+                if (isDragging) return;
+                currentX += autoScrollSpeed;
+                wrapPosition();
+                track.style.transform = `translateX(${currentX}px)`;
+                animationId = requestAnimationFrame(autoScroll);
+            }
+
+            function startAutoScroll() {
+                track.style.animation = 'none';
+                animationId = requestAnimationFrame(autoScroll);
+            }
+
+            function applyMomentum() {
+                if (Math.abs(velocity) < 0.2) {
+                    startAutoScroll();
                     return;
                 }
-
-                // Apply momentum with infinite wrap
-                currentTranslate += velocity;
-                currentTranslate = wrapPosition(currentTranslate);
-                velocity *= 0.96; // Friction
-                track.style.transform = `translateX(${currentTranslate}px)`;
-                animationId = requestAnimationFrame(infiniteScroll);
+                currentX += velocity;
+                velocity *= 0.97;
+                wrapPosition();
+                track.style.transform = `translateX(${currentX}px)`;
+                animationId = requestAnimationFrame(applyMomentum);
             }
 
-            function stopDrag() {
-                if (isDragging) {
-                    isDragging = false;
-                    container.classList.remove('dragging');
-
-                    // Start smooth momentum with infinite loop
-                    if (animationId) cancelAnimationFrame(animationId);
-                    infiniteScroll();
-                }
-            }
+            // Initialize
+            track.style.animation = 'none';
+            const style = window.getComputedStyle(track);
+            const matrix = new DOMMatrix(style.transform);
+            currentX = matrix.m41 || 0;
+            startAutoScroll();
 
             container.addEventListener('mousedown', (e) => {
                 if (animationId) cancelAnimationFrame(animationId);
                 isDragging = true;
-                container.classList.add('dragging');
                 startX = e.pageX;
                 lastX = e.pageX;
                 lastTime = Date.now();
                 velocity = 0;
-                const style = window.getComputedStyle(track);
-                const matrix = new DOMMatrix(style.transform);
-                currentTranslate = matrix.m41;
-                track.style.animation = 'none';
-                track.style.transform = `translateX(${currentTranslate}px)`;
+                container.classList.add('dragging');
             });
 
             container.addEventListener('mousemove', (e) => {
@@ -711,65 +785,52 @@
                 const x = e.pageX;
                 const now = Date.now();
                 const dt = now - lastTime;
-                if (dt > 0) {
-                    velocity = (x - lastX) / dt * 16;
-                }
+                if (dt > 0) velocity = (x - lastX) * 2;
                 lastX = x;
                 lastTime = now;
-                const walk = (x - startX) * 1.5;
-                let newPos = currentTranslate + walk;
-                newPos = wrapPosition(newPos);
-                track.style.transform = `translateX(${newPos}px)`;
+                track.style.transform = `translateX(${currentX + (x - startX)}px)`;
             });
 
-            container.addEventListener('mouseup', (e) => {
-                if (isDragging) {
-                    const walk = (e.pageX - startX) * 1.5;
-                    currentTranslate = wrapPosition(currentTranslate + walk);
-                }
-                stopDrag();
-            });
-            container.addEventListener('mouseleave', stopDrag);
+            function endDrag(e) {
+                if (!isDragging) return;
+                isDragging = false;
+                container.classList.remove('dragging');
+                currentX += ((e?.pageX || lastX) - startX);
+                wrapPosition();
+                applyMomentum();
+            }
 
-            // Touch support
+            container.addEventListener('mouseup', endDrag);
+            container.addEventListener('mouseleave', endDrag);
+
             container.addEventListener('touchstart', (e) => {
                 if (animationId) cancelAnimationFrame(animationId);
                 isDragging = true;
-                container.classList.add('dragging');
                 startX = e.touches[0].pageX;
                 lastX = e.touches[0].pageX;
                 lastTime = Date.now();
                 velocity = 0;
-                const style = window.getComputedStyle(track);
-                const matrix = new DOMMatrix(style.transform);
-                currentTranslate = matrix.m41;
-                track.style.animation = 'none';
-                track.style.transform = `translateX(${currentTranslate}px)`;
-            });
+                container.classList.add('dragging');
+            }, { passive: true });
 
             container.addEventListener('touchmove', (e) => {
                 if (!isDragging) return;
                 const x = e.touches[0].pageX;
                 const now = Date.now();
                 const dt = now - lastTime;
-                if (dt > 0) {
-                    velocity = (x - lastX) / dt * 16;
-                }
+                if (dt > 0) velocity = (x - lastX) * 2;
                 lastX = x;
                 lastTime = now;
-                const walk = (x - startX) * 1.5;
-                let newPos = currentTranslate + walk;
-                newPos = wrapPosition(newPos);
-                track.style.transform = `translateX(${newPos}px)`;
-            });
+                track.style.transform = `translateX(${currentX + (x - startX)}px)`;
+            }, { passive: true });
 
-            container.addEventListener('touchend', (e) => {
-                if (isDragging) {
-                    const touch = e.changedTouches[0];
-                    const walk = (touch.pageX - startX) * 1.5;
-                    currentTranslate = wrapPosition(currentTranslate + walk);
-                }
-                stopDrag();
+            container.addEventListener('touchend', () => {
+                if (!isDragging) return;
+                isDragging = false;
+                container.classList.remove('dragging');
+                currentX += (lastX - startX);
+                wrapPosition();
+                applyMomentum();
             });
         });
     </script>

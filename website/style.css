@@ -1044,8 +1044,8 @@ html {
 .marquee-container {
     width: 100%;
     overflow: hidden;
-    background: linear-gradient(90deg, #e0f7f4 0%, #f0fdf9 50%, #e0f7f4 100%);
-    padding: 20px 0;
+    background: transparent;
+    padding: 10px 0;
     position: relative;
     cursor: grab;
     user-select: none;
@@ -1074,7 +1074,7 @@ html {
     gap: 16px;
     font-size: 1.3rem;
     font-weight: 700;
-    background: linear-gradient(90deg, #14b8a6 0%, #6366f1 100%);
+    background: linear-gradient(90deg, #00d4ff 0%, #7c3aed 50%, #f472b6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -1084,9 +1084,14 @@ html {
 }
 
 .marquee-item::before {
-    content: '📢';
-    font-size: 1.2rem;
-    -webkit-text-fill-color: initial;
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    background-image: url('favicon.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
 }
 
 @keyframes marqueeScroll {
