@@ -159,7 +159,14 @@ def cmd_start(message):
     conn.close()
     
     if existing:
-        bot.send_message(cid, tg_conf.MESSAGES["welcome_old"].format(name=name), reply_markup=tg_conf.create_main_menu())
+        # Süre dolmuş mu kontrol et
+        access_status = db.check_user_access(cid)
+        if not access_status["access"]:
+            # Süresi dolmuş - kısıtlı menü göster
+            msg = tg_conf.MESSAGES["expiry_ended"]
+            bot.send_message(cid, msg, reply_markup=tg_conf.create_expired_menu(), parse_mode="Markdown")
+        else:
+            bot.send_message(cid, tg_conf.MESSAGES["welcome_old"].format(name=name), reply_markup=tg_conf.create_main_menu())
     else:
         # Referans kaydı (varsa)
         if referrer_id and referrer_id != str(cid):
@@ -657,6 +664,25 @@ def handle_callback(call):
     data = call.data
     import scan_engine
     
+    # Süresi dolmuş kullanıcılar için erişim kontrolü
+    ALLOWED_FOR_EXPIRED = ["satin_al", "sss", "back_to_expiry"]
+    access_status = db.check_user_access(cid)
+    is_expired = not access_status["access"]
+    
+    if is_expired:
+        # buy_ ile başlayanlar da izinli
+        is_allowed = data in ALLOWED_FOR_EXPIRED or data.startswith("buy_")
+        if not is_allowed:
+            # İzinsiz callback - expiry mesajı göster
+            msg = tg_conf.MESSAGES["expiry_ended"]
+            markup = tg_conf.create_expired_menu()
+            try: 
+                bot.edit_message_text(msg, cid, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+            except: 
+                bot.send_message(cid, msg, reply_markup=markup, parse_mode="Markdown")
+            bot.answer_callback_query(call.id, "⛔ Üyeliğiniz sona erdi!", show_alert=True)
+            return
+    
     try:
         # --- PAKET TİPİ SEÇİMİ ---
         if data.startswith("tier_"):
@@ -730,6 +756,10 @@ def handle_callback(call):
                 bot.answer_callback_query(call.id, "Geçersiz süre!", show_alert=True)
                 return
             
+            # Süre dolmuş mu kontrol et
+            access_status = db.check_user_access(cid)
+            is_expired = not access_status["access"]
+            
             # Cüzdan kontrolü
             if USDT_WALLET_ADDRESS == "YOUR_TRC20_WALLET_ADDRESS_HERE":
                 bot.answer_callback_query(call.id, "Ödeme sistemi yapılandırılmamış!", show_alert=True)
@@ -772,7 +802,11 @@ def handle_callback(call):
                 )
                 
                 markup = types.InlineKeyboardMarkup()
-                markup.add(types.InlineKeyboardButton("🔙 Geri", callback_data="main_menu"))
+                # Süre dolmuşsa geri butonunda expiry mesajına dön
+                if is_expired:
+                    markup.add(types.InlineKeyboardButton("🔙 Geri", callback_data="satin_al"))
+                else:
+                    markup.add(types.InlineKeyboardButton("🔙 Geri", callback_data="satin_al"))
                 
                 bot.send_message(cid, text, parse_mode="Markdown", reply_markup=markup)
             else:
@@ -782,6 +816,10 @@ def handle_callback(call):
         if data == "satin_al":
             # Satın alma menüsünü göster
             from config import SUBSCRIPTION_DURATIONS
+            
+            # Süre dolmuş mu kontrol et
+            access_status = db.check_user_access(cid)
+            is_expired = not access_status["access"]
             
             text = (
                 "💎 **BTK İzleme Hizmeti**\n"
@@ -801,7 +839,12 @@ def handle_callback(call):
                 markup.add(types.InlineKeyboardButton(btn_text, callback_data=f"buy_{key}"))
             
             markup.add(types.InlineKeyboardButton("💬 Farklı Coin ile Ödeme", url=tg_conf.SUPPORT_URL))
-            markup.add(types.InlineKeyboardButton("🔙 Ana Menü", callback_data="main_menu"))
+            
+            # Süre dolmuşsa geri butonunda expiry mesajına dön
+            if is_expired:
+                markup.add(types.InlineKeyboardButton("🔙 Geri", callback_data="back_to_expiry"))
+            else:
+                markup.add(types.InlineKeyboardButton("🔙 Ana Menü", callback_data="main_menu"))
             
             try: bot.edit_message_text(text, cid, call.message.message_id, parse_mode="Markdown", reply_markup=markup)
             except: bot.send_message(cid, text, parse_mode="Markdown", reply_markup=markup)
@@ -846,6 +889,14 @@ def handle_callback(call):
         if data == "main_menu":
             try: bot.edit_message_text("📋 **Ana Menü:**", cid, call.message.message_id, reply_markup=tg_conf.create_main_menu(), parse_mode="Markdown")
             except: pass
+
+        elif data == "back_to_expiry":
+            # Süre dolmuş kullanıcı geri butonuna tıkladığında expiry mesajı göster
+            msg = tg_conf.MESSAGES["expiry_ended"]
+            markup = types.InlineKeyboardMarkup()
+            markup.add(types.InlineKeyboardButton("💰 Satın Al", callback_data="satin_al"))
+            try: bot.edit_message_text(msg, cid, call.message.message_id, reply_markup=markup, parse_mode="Markdown")
+            except: bot.send_message(cid, msg, reply_markup=markup, parse_mode="Markdown")
 
         elif data == "trial_start_now":
             succ, st, ex = db.register_user_scheduled(cid, False)

@@ -61,7 +61,6 @@ MESSAGES = {
     
     "welcome_old": "👋 Tekrar Merhaba {name}!\nKontrol paneli hazır:",
     "access_denied": "⛔ **Erişim Reddedildi**\n\nDurum: {status}\n\nDevam etmek için lütfen paket satın alın.",
-    "trial_expired": "⏳ **Deneme Süreniz Sona Erdi!**\n\nDomain takibiniz durduruldu. Kesintisiz hizmet için lütfen iletişime geçin.",
     "only_admin": "⛔ Bu komutu sadece yöneticiler kullanabilir.",
     "only_premium": "💎 Bu özellik Premium üyelere özeldir. Satın almak için destekle iletişime geçin.",
     
@@ -158,6 +157,17 @@ def create_main_menu():
     markup.add(btn_ekle, btn_sorgu)
     markup.add(btn_sss, btn_referans)
     markup.add(btn_satin_al, btn_destek)
+    return markup
+
+def create_expired_menu():
+    """Süresi dolmuş kullanıcılar için kısıtlı menü"""
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    btn_satin_al = types.InlineKeyboardButton("💰 Satın Al", callback_data="satin_al")
+    btn_sss = types.InlineKeyboardButton("❓ S.S.S", callback_data="sss")
+    btn_destek = types.InlineKeyboardButton("💬 Canlı Destek", url=SUPPORT_URL)
+    
+    markup.add(btn_satin_al)
+    markup.add(btn_sss, btn_destek)
     return markup
 
 def create_domain_list_menu(domains_info):
