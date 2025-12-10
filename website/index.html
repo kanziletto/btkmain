@@ -305,6 +305,28 @@
         </div>
     </section>
 
+    <!-- Marquee Banner 1 -->
+    <div class="marquee-container" id="marquee1">
+        <div class="marquee-track">
+            <span class="marquee-item">BTK Sorgu Botu</span>
+            <span class="marquee-item">TİB Sorgu Botu</span>
+            <span class="marquee-item">7/24 Otomatik Takip</span>
+            <span class="marquee-item">Anlık Telegram Bildirimi</span>
+            <span class="marquee-item">48 Saat Ücretsiz Deneme</span>
+            <span class="marquee-item">BTK Sorgu</span>
+            <span class="marquee-item">TİB Sorgu</span>
+            <span class="marquee-item">Domain Engelleme Kontrolü</span>
+            <span class="marquee-item">BTK Sorgu Botu</span>
+            <span class="marquee-item">TİB Sorgu Botu</span>
+            <span class="marquee-item">7/24 Otomatik Takip</span>
+            <span class="marquee-item">Anlık Telegram Bildirimi</span>
+            <span class="marquee-item">48 Saat Ücretsiz Deneme</span>
+            <span class="marquee-item">BTK Sorgu</span>
+            <span class="marquee-item">TİB Sorgu</span>
+            <span class="marquee-item">Domain Engelleme Kontrolü</span>
+        </div>
+    </div>
+
     <!-- Features Section -->
     <section class="features" id="features">
         <div class="container">
@@ -343,6 +365,28 @@
             </div>
         </div>
     </section>
+
+    <!-- Marquee Banner 2 (Dark, Reverse) -->
+    <div class="marquee-container dark reverse" id="marquee2">
+        <div class="marquee-track">
+            <span class="marquee-item">BTK Botu</span>
+            <span class="marquee-item">TİB Botu</span>
+            <span class="marquee-item">Oto-Geçiş Özelliği</span>
+            <span class="marquee-item">Ekran Görüntüsü Kanıtı</span>
+            <span class="marquee-item">Manuel Sorgu</span>
+            <span class="marquee-item">Grup Bildirimi</span>
+            <span class="marquee-item">BTK Sorgu Botu</span>
+            <span class="marquee-item">TİB Sorgu Botu</span>
+            <span class="marquee-item">BTK Botu</span>
+            <span class="marquee-item">TİB Botu</span>
+            <span class="marquee-item">Oto-Geçiş Özelliği</span>
+            <span class="marquee-item">Ekran Görüntüsü Kanıtı</span>
+            <span class="marquee-item">Manuel Sorgu</span>
+            <span class="marquee-item">Grup Bildirimi</span>
+            <span class="marquee-item">BTK Sorgu Botu</span>
+            <span class="marquee-item">TİB Sorgu Botu</span>
+        </div>
+    </div>
 
     <!-- Demo Video Section -->
     <section class="demo" id="demo">
@@ -617,6 +661,80 @@
         window.addEventListener('resize', () => {
             resizeCanvas();
             initDrops();
+        });
+    </script>
+
+    <!-- Marquee Drag Functionality -->
+    <script>
+        document.querySelectorAll('.marquee-container').forEach(container => {
+            const track = container.querySelector('.marquee-track');
+            let isDragging = false;
+            let startX;
+            let scrollLeft;
+            let currentTranslate = 0;
+
+            container.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                container.classList.add('dragging');
+                startX = e.pageX;
+                const style = window.getComputedStyle(track);
+                const matrix = new DOMMatrix(style.transform);
+                currentTranslate = matrix.m41;
+                track.style.animation = 'none';
+                track.style.transform = `translateX(${currentTranslate}px)`;
+            });
+
+            container.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                e.preventDefault();
+                const x = e.pageX;
+                const walk = (x - startX) * 2;
+                track.style.transform = `translateX(${currentTranslate + walk}px)`;
+            });
+
+            container.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    container.classList.remove('dragging');
+                    track.style.animation = '';
+                    track.style.transform = '';
+                }
+            });
+
+            container.addEventListener('mouseleave', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    container.classList.remove('dragging');
+                    track.style.animation = '';
+                    track.style.transform = '';
+                }
+            });
+
+            // Touch support
+            container.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                container.classList.add('dragging');
+                startX = e.touches[0].pageX;
+                const style = window.getComputedStyle(track);
+                const matrix = new DOMMatrix(style.transform);
+                currentTranslate = matrix.m41;
+                track.style.animation = 'none';
+                track.style.transform = `translateX(${currentTranslate}px)`;
+            });
+
+            container.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                const x = e.touches[0].pageX;
+                const walk = (x - startX) * 2;
+                track.style.transform = `translateX(${currentTranslate + walk}px)`;
+            });
+
+            container.addEventListener('touchend', () => {
+                isDragging = false;
+                container.classList.remove('dragging');
+                track.style.animation = '';
+                track.style.transform = '';
+            });
         });
     </script>
 </body>
