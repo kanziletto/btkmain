@@ -1062,9 +1062,7 @@ html {
     width: max-content;
 }
 
-.marquee-container:hover .marquee-track {
-    animation-play-state: paused;
-}
+/* Marquee keeps scrolling on hover - removed pause */
 
 .marquee-container.dragging .marquee-track {
     animation-play-state: paused;
