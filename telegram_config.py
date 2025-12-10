@@ -73,7 +73,7 @@ MESSAGES = {
         
         "**⚡ Tarama Sıklığı**\n"
         "• Hafta içi: Anlık tarama\n"
-        "• Hafta sonu: 1 saatte bir\n\n"
+        "• Hafta sonu: 1 saatte bir (BTK haftasonu engellemez, tedbiri elden bırakmamak adına.)\n\n"
         
         "**🔄 Oto-Geçiş**\n"
         "site110.com engellenince → site111.com otomatik eklenir.\n\n"
