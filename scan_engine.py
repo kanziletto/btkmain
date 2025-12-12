@@ -321,13 +321,16 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
                 if is_ultra:
                     text = f"🛡️ **ULTRA KONTROL**\n🌍 `{domain}`\n✅ Durum: **TEMİZ**\n🕒 Saat: {datetime.datetime.now().strftime('%H:%M:%S')}"
                 else:
-                    header = tg_conf.MESSAGES["report_header_change"] if degisim else tg_conf.MESSAGES["report_header_banned"]
-                    if yeni == "ENGELLİ" and next_domain:
-                         text = f"{header}\n🚫 *{domain}* engellendi.\n👉 Lütfen *{next_domain}* adresine geçiniz."
-                    elif yeni == "ENGELLİ":
-                         text = f"{header}\n🚫 *{domain}* engellendi."
+                    if eski == "YENI" and yeni == "TEMİZ":
+                        text = tg_conf.MESSAGES["new_domain_clean"].format(domain=domain)
                     else:
-                         text = tg_conf.MESSAGES["report_body"].format(header=header, domain=domain, status=yeni)
+                        header = tg_conf.MESSAGES["report_header_change"] if degisim else tg_conf.MESSAGES["report_header_banned"]
+                        if yeni == "ENGELLİ" and next_domain:
+                             text = f"{header}\n🚫 *{domain}* engellendi.\n👉 Lütfen *{next_domain}* adresine geçiniz."
+                        elif yeni == "ENGELLİ":
+                             text = f"{header}\n🚫 *{domain}* engellendi."
+                        else:
+                             text = tg_conf.MESSAGES["report_body"].format(header=header, domain=domain, status=yeni)
                 
                 if local_image_path:
                     notification_queue.put({

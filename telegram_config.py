@@ -118,7 +118,9 @@ MESSAGES = {
         "⛔ **Üyelik Sona Erdi**\n\n"
         "Domain takibiniz durduruldu.\n\n"
         "Devam etmek için paket satın alın:"
-    )
+    ),
+    
+    "new_domain_clean": "✅ **Yeni Site Kontrol Edildi**\n\n🌍 `{domain}` temiz.\n👍 Rahatlıkla geçiş yapabilirsiniz."
 }
 
 # --- MENÜ TASARIMLARI (UI) ---
