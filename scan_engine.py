@@ -281,9 +281,16 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
 
     # HATA ve BİLİNMİYOR durumlarında sadece admin kanalına bildir
     if yeni in ["HATA", "BİLİNMİYOR"]:
-        if degisim:  # Sadece durum değiştiğinde
+        if degisim or local_image_path:  # Durum değiştiyse VEYA screenshot varsa (hata kanıtı)
             admin_msg = f"⚠️ **Tarama Sorunu**\n🌍 `{domain}`\n📊 Durum: {yeni}\n📝 Detay: {sonuc.detay if hasattr(sonuc, 'detay') else '-'}"
-            notification_queue.put({"type": "telegram_text", "chat_id": ADMIN_CHANNEL_ID, "text": admin_msg})
+            
+            if local_image_path:
+                notification_queue.put({
+                    "type": "telegram_photo", "chat_id": ADMIN_CHANNEL_ID, 
+                    "path": local_image_path, "caption": admin_msg, "delete_after": False
+                })
+            else:
+                notification_queue.put({"type": "telegram_text", "chat_id": ADMIN_CHANNEL_ID, "text": admin_msg})
         # Kullanıcılara ve webhook'lara bildirim gönderme
     else:
         # TÜM değişimleri admin kanalına bildir

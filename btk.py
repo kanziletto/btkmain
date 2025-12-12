@@ -11,6 +11,11 @@ from config import CAPTCHA_PROVIDERS
 from utils import logger, SorguSonucu
 from PIL import Image
 
+class CriticalDriverError(Exception):
+    def __init__(self, message, screenshot=None):
+        super().__init__(message)
+        self.screenshot = screenshot
+
 class BTKScanner:
     def __init__(self):
         self.base_url = "https://internet2.btk.gov.tr/sitesorgu/"
@@ -128,10 +133,17 @@ class BTKScanner:
             return SorguSonucu(domain, durum, detay, total_time, captcha_code, screenshot_paths=screenshots)
 
         except Exception as e:
+            # Hata durumunda da SS almayı dene
+            try:
+                ss = self._take_screenshot(driver, domain)
+                if ss: screenshots.append(ss)
+            except: pass
+
             # KRİTİK HATALARI YAKALAYIP FIRLAT (Driver yenilensin diye)
             msg = str(e).lower()
-            if "renderer" in msg or "timeout" in msg or "disconnected" in msg:
-                raise e
+            if "renderer" in msg or "timeout" in msg or "disconnected" in msg or "closed" in msg:
+                # Screenshot'ı exception ile yukarı taşı
+                raise CriticalDriverError(str(e), screenshot=screenshots[0] if screenshots else None)
             
             logger.error(f"Tarama hatası ({domain}): {e}")
             return SorguSonucu(domain, "HATA", str(e), 0.0, screenshot_paths=screenshots)
@@ -154,6 +166,15 @@ class BTKScanner:
                             logger.info(f"✅ {domain} {attempt}. denemede başarılı")
                         return sonuc
             
+            except CriticalDriverError as e:
+                # Kritik hata: Driver öldü, ama elimizde SS olabilir
+                logger.warning(f"⚠️ Driver CRITICAL ({domain}): {e}... Driver yenileniyor.")
+                
+                # Sonucu kaydet (son deneme ise bunu döndüreceğiz)
+                sonuc = SorguSonucu(domain, "HATA", f"Critical: {e}", 0.0, screenshot_paths=[e.screenshot] if e.screenshot else [])
+                time.sleep(2)
+                continue
+
             except Exception as e:
                 # Driver crash/timeout durumunda buraya düşer (Context manager driver'ı discard etti)
                 logger.warning(f"⚠️ Driver crash/timeout ({domain}): {e}... Yeni driver bekleniyor.")
