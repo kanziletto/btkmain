@@ -33,6 +33,7 @@ def _create_driver():
     options.add_argument("--disable-extensions")
     options.add_argument("--window-size=1920,1080")
     options.add_argument("--log-level=3")
+    options.page_load_strategy = 'eager'
     
     # Proxy (TR IP için gerekli)
     proxy = get_random_proxy()
@@ -42,10 +43,10 @@ def _create_driver():
     try:
         driver = webdriver.Chrome(service=Service(), options=options)
         
-        # 🚨 KRİTİK AYAR: Sayfa yükleme zaman aşımı (15 saniye)
+        # 🚨 KRİTİK AYAR: Sayfa yükleme zaman aşımı (60 saniye)
         # Bu ayar olmazsa proxy yavaşladığında bot sonsuza kadar donar.
-        driver.set_page_load_timeout(30)
-        driver.set_script_timeout(30)
+        driver.set_page_load_timeout(60)
+        driver.set_script_timeout(60)
         
         # YENİ: Kullanım sayacı ekle
         driver.usage_count = 0 

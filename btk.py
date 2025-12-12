@@ -128,28 +128,41 @@ class BTKScanner:
             return SorguSonucu(domain, durum, detay, total_time, captcha_code, screenshot_paths=screenshots)
 
         except Exception as e:
+            # KRİTİK HATALARI YAKALAYIP FIRLAT (Driver yenilensin diye)
+            msg = str(e).lower()
+            if "renderer" in msg or "timeout" in msg or "disconnected" in msg:
+                raise e
+            
             logger.error(f"Tarama hatası ({domain}): {e}")
             return SorguSonucu(domain, "HATA", str(e), 0.0, screenshot_paths=screenshots)
 
     def sorgula(self, domain: str, max_retries=10, force_screenshot=False) -> SorguSonucu:
-        """Domain sorgular - driver havuzdan alınır, 10 retry, 1s bekleme (GitHub gibi)"""
+        """Domain sorgular - HER DENEMEDE driver havuzdan alınır (Robust)"""
         sonuc = None
         
-        with get_driver() as driver:
-            for attempt in range(1, max_retries + 1):
-                if attempt > 1:
-                    logger.info(f"🔄 {domain} tekrar deneniyor ({attempt}/{max_retries})...")
-                
-                sonuc = self._tek_sorgu(domain, driver, force_screenshot=force_screenshot)
-                
-                if sonuc.durum != "HATA":
+        for attempt in range(1, max_retries + 1):
+            try:
+                # Driver'ı döngü İÇİNDE alıyoruz ki hata durumunda yenilensin
+                with get_driver() as driver:
                     if attempt > 1:
-                        logger.info(f"✅ {domain} {attempt}. denemede başarılı")
-                    return sonuc
-                
-                # Retry öncesi 1 saniye bekle (GitHub gibi)
-                time.sleep(1)
+                        logger.info(f"🔄 {domain} tekrar deneniyor ({attempt}/{max_retries})...")
+                    
+                    sonuc = self._tek_sorgu(domain, driver, force_screenshot=force_screenshot)
+                    
+                    if sonuc.durum != "HATA":
+                        if attempt > 1:
+                            logger.info(f"✅ {domain} {attempt}. denemede başarılı")
+                        return sonuc
             
-            logger.error(f"❌ {domain}: {max_retries} denemede başarısız oldu")
-            return sonuc
+            except Exception as e:
+                # Driver crash/timeout durumunda buraya düşer (Context manager driver'ı discard etti)
+                logger.warning(f"⚠️ Driver crash/timeout ({domain}): {e}... Yeni driver bekleniyor.")
+                time.sleep(2)
+                continue
+            
+            # Normal hata (kaptcha yanlış vs) - biraz bekle ve tekrar dene
+            time.sleep(1)
+        
+        logger.error(f"❌ {domain}: {max_retries} denemede başarısız oldu")
+        return sonuc if sonuc else SorguSonucu(domain, "HATA", "Max retries exceeded", 0.0)
 
