@@ -314,8 +314,7 @@ def cmd_link(message):
     else:
         bot.reply_to(message, result["msg"])
 
-    else:
-        bot.reply_to(message, result["msg"])
+
 
 @bot.message_handler(commands=['listem'])
 def cmd_list(message):
