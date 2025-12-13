@@ -257,7 +257,7 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
     local_image_path = None
     
     # Screenshot işlemleri (RAM ve Disk Desteği)
-    if sonuc.screenshot_paths:
+
     target_users = db.get_users_for_domain(domain)
     
     # Webhook var mı kontrol et (Gereksiz upload yapmamak için)
