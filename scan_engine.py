@@ -258,9 +258,24 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
     
     # Screenshot işlemleri (RAM ve Disk Desteği)
     if sonuc.screenshot_paths:
+    target_users = db.get_users_for_domain(domain)
+    
+    # Webhook var mı kontrol et (Gereksiz upload yapmamak için)
+    # Sadece ENGELLİ durumunda ve webhook varsa upload gereklidir.
+    has_webhooks = False
+    if yeni == "ENGELLİ":
+        # Target users içinde webhook tanımlı olan var mı bak
+        for uid in target_users:
+            if db.get_active_webhooks_for_domain(uid, domain):
+                has_webhooks = True
+                break
+
+    # Screenshot işlemleri (RAM ve Disk Desteği)
+    if sonuc.screenshot_paths:
         for path in sonuc.screenshot_paths:
-            # 1. Önce Resmi Sunucuya Yükle (URL Al)
-            image_url = upload_image_to_remote(path)
+            # 1. Önce Resmi Sunucuya Yükle (URL Al) - SADECE WEBHOOK VARSA
+            if has_webhooks:
+                image_url = upload_image_to_remote(path)
             
             # 2. Telegram için yerel kopya hazırla
             if isinstance(path, str) and os.path.exists(path):
@@ -275,7 +290,7 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
                 local_image_path = temp_name
                 break
 
-    target_users = db.get_users_for_domain(domain)
+
     global_switch = None
     ultra_ss_active = db.get_setting("ultra_screenshots")
 
