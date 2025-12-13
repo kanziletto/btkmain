@@ -800,7 +800,7 @@ def handle_callback(call):
     data = call.data
     import scan_engine
     
-    import scan_engine
+
     
     # GRUP İÇİN ÖZEL MANTIK (Linked Groups)
     if call.message.chat.type in ['group', 'supergroup']:
@@ -832,7 +832,7 @@ def handle_callback(call):
         access_status = db.check_user_access(cid)
         is_expired = not access_status["access"]
     
-    if is_expired:
+
     
     if is_expired:
         # buy_ ile başlayanlar da izinli
