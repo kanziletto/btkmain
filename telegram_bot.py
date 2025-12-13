@@ -46,11 +46,22 @@ def check_access(func):
         status = db.check_user_access(user_id)
         
         if not status["access"]:
-            msg = tg_conf.MESSAGES["access_denied"].format(status=status['msg'])
-            if isinstance(message, types.CallbackQuery):
-                bot.answer_callback_query(message.id, status['msg'], show_alert=True)
+            # Süresi dolmuş kullanıcılar için /start ile aynı mesajı göster
+            if status.get("reason") == "expired" or status.get("registered"):
+                msg = tg_conf.MESSAGES["expiry_ended"]
+                markup = tg_conf.create_expired_menu()
             else:
-                bot.reply_to(message, msg, parse_mode="Markdown")
+                msg = tg_conf.MESSAGES["access_denied"].format(status=status['msg'])
+                markup = None
+                
+            if isinstance(message, types.CallbackQuery):
+                bot.answer_callback_query(message.id, "⛔ Üyeliğiniz sona erdi!", show_alert=True)
+                try:
+                    bot.edit_message_text(msg, message.message.chat.id, message.message.message_id, reply_markup=markup, parse_mode="Markdown")
+                except:
+                    bot.send_message(message.message.chat.id, msg, reply_markup=markup, parse_mode="Markdown")
+            else:
+                bot.send_message(message.chat.id, msg, reply_markup=markup, parse_mode="Markdown")
             return
         return func(message, *args, **kwargs)
     return wrapper

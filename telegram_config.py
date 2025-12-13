@@ -81,7 +81,7 @@ MESSAGES = {
         "**📦 Paketler**\n"
         "🆓 Deneme: 48 saat, 2 domain\n\n"
         "💰 Ücretli:\n"
-        "• 1 Ay - $70 (5 domain)\n"
+        "• 1 Ay - $75 (5 domain)\n"
         "• 3 Ay - $200 (10 domain)\n"
         "• 6 Ay - $400 (15 domain + Entegrasyon)\n"
         "• 12 Ay - $700 (25 domain + Entegrasyon)\n\n"
