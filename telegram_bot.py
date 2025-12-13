@@ -158,6 +158,29 @@ def cmd_start(message):
     name = message.from_user.first_name
     username = message.from_user.username
     
+    # --- GRUP KISITLAMASI & YÖNLENDİRME ---
+    if message.chat.type in ['group', 'supergroup']:
+        try:
+            bot_username = bot.get_me().username
+        except:
+            bot_username = "BTKSorguBot"
+            
+        markup = types.InlineKeyboardMarkup()
+        btn_start = types.InlineKeyboardButton("🤖 Botu Başlat", url=f"https://t.me/{bot_username}?start=start")
+        btn_site = types.InlineKeyboardButton("🌐 Web Sitemiz", url="https://btksorgu.net")
+        markup.add(btn_start, btn_site)
+        
+        msg = (
+            "⚠️ **Grup Kurulumu Sadece Premium!**\n\n"
+            "Bu botu gruplarda kullanabilmek için **Premium** paket sahibi olmalısınız.\n\n"
+            "1️⃣ Özelden botu başlatın ve paket alın.\n"
+            "2️⃣ `/anahtar` komutu ile bir anahtar oluşturun.\n"
+            "3️⃣ Bu gruba dönüp `/bagla [ANAHTAR]` yazın."
+        )
+        bot.send_message(cid, msg, reply_markup=markup, parse_mode="Markdown")
+        return
+    # --------------------------------------
+    
     # Username kaydet
     if username: db.update_username(cid, username)
     
