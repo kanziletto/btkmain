@@ -314,10 +314,36 @@ def cmd_link(message):
     else:
         bot.reply_to(message, result["msg"])
 
+    else:
+        bot.reply_to(message, result["msg"])
+
 @bot.message_handler(commands=['listem'])
-@check_access
 def cmd_list(message):
     cid = message.chat.id
+    
+    # 1. GRUP İÇİN ÖZEL MANTIK
+    if message.chat.type in ['group', 'supergroup']:
+        domains = db.get_linked_domains_for_chat(cid)
+        if not domains:
+             bot.reply_to(message, "⚠️ **Liste Boş!**\n\nBu gruba henüz bir domain bağlanmamış.\nBağlamak için özelden anahtar alıp `/bagla` komutunu kullanın.", parse_mode="Markdown")
+             return
+        
+        info = [(d, *db.get_domain_info(d)) for d in domains]
+        bot.send_message(cid, f"🔗 **Grup Takip Listesi** ({len(domains)} Domain)", parse_mode="Markdown", reply_markup=tg_conf.create_domain_list_menu(info))
+        return
+
+    # 2. ŞAHSİ KULLANIM İÇİN (Mevcut Mantık)
+    # check_access decorator yerine manuel kontrol yapıyoruz
+    status = db.check_user_access(cid)
+    if not status["registered"] or not status["access"]:
+         # Yetkisiz veya süresi dolmuş
+         if status.get("reason") == "expired":
+              bot.send_message(cid, tg_conf.MESSAGES["expiry_ended"], reply_markup=tg_conf.create_expired_menu())
+         else:
+              # Hiç kayıtlı değilse yönlendir
+              bot.send_message(cid, "⛔ Kaydınız bulunamadı. `/start` yazarak başlayın.")
+         return
+
     domains = db.get_user_domains(cid)
     if not domains:
         bot.send_message(cid, tg_conf.MESSAGES["list_empty"], reply_markup=tg_conf.create_main_menu())

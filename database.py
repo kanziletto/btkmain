@@ -853,3 +853,10 @@ class Database:
         conn.close()
         # Unique list yap
         return list(set([r[0] for r in rows]))
+    
+    def get_linked_domains_for_chat(self, chat_id: str) -> list:
+        """Bir Chat ID'ye (grup) bağlı domainleri getirir"""
+        conn = self._get_conn()
+        rows = conn.execute("SELECT domain FROM notification_links WHERE linked_chat_id=?", (str(chat_id),)).fetchall()
+        conn.close()
+        return [r[0] for r in rows]
