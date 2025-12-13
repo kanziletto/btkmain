@@ -114,14 +114,14 @@ class Database:
             conn.commit(); conn.close(); return True, start, expiry
 
     def check_user_access(self, user_id: str) -> dict:
-        if str(user_id) == str(ADMIN_ID): return {"access": True, "plan": "admin", "msg": "Admin"}
+        if str(user_id) == str(ADMIN_ID): return {"access": True, "plan": "admin", "msg": "Admin", "registered": True}
         conn = self._get_conn(); row = conn.execute("SELECT plan, start_date, expiry_date FROM users WHERE user_id=?", (str(user_id),)).fetchone(); conn.close()
-        if not row: return {"access": False, "plan": "none", "msg": "Kayıt yok."}
+        if not row: return {"access": False, "plan": "none", "msg": "Kayıt yok.", "registered": False}
         try:
-            if datetime.datetime.now() < parse(row[1]): return {"access": False, "plan": "scheduled", "msg": "Başlamadı."}
-            if datetime.datetime.now() > parse(row[2]): return {"access": False, "plan": "expired", "msg": "Süre doldu."}
-        except: return {"access": False, "plan": "error", "msg": "Hata."}
-        return {"access": True, "plan": row[0], "msg": "Aktif"}
+            if datetime.datetime.now() < parse(row[1]): return {"access": False, "plan": "scheduled", "msg": "Başlamadı.", "registered": True}
+            if datetime.datetime.now() > parse(row[2]): return {"access": False, "plan": "expired", "msg": "Süre doldu.", "registered": True, "reason": "expired"}
+        except: return {"access": False, "plan": "error", "msg": "Hata.", "registered": True}
+        return {"access": True, "plan": row[0], "msg": "Aktif", "registered": True}
 
     def get_user_data(self, user_id):
         conn = self._get_conn(); c = conn.cursor(); c.execute("SELECT * FROM users WHERE user_id=?", (str(user_id),)); row = c.fetchone(); conn.close()
