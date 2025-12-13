@@ -159,12 +159,13 @@ def create_main_menu():
 
 def create_expired_menu():
     """Süresi dolmuş kullanıcılar için kısıtlı menü"""
-    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup = types.InlineKeyboardMarkup(row_width=2)
     btn_satin_al = types.InlineKeyboardButton("💰 Satın Al", callback_data="satin_al")
+    btn_referans = types.InlineKeyboardButton("🎁 Davet Et", callback_data="referans")
     btn_sss = types.InlineKeyboardButton("❓ S.S.S", callback_data="sss")
     btn_destek = types.InlineKeyboardButton("💬 Canlı Destek", url=SUPPORT_URL)
     
-    markup.add(btn_satin_al)
+    markup.add(btn_satin_al, btn_referans)
     markup.add(btn_sss, btn_destek)
     return markup
 
