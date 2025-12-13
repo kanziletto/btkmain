@@ -800,10 +800,39 @@ def handle_callback(call):
     data = call.data
     import scan_engine
     
-    # Süresi dolmuş kullanıcılar için erişim kontrolü
-    ALLOWED_FOR_EXPIRED = ["satin_al", "sss", "back_to_expiry"]
-    access_status = db.check_user_access(cid)
-    is_expired = not access_status["access"]
+    import scan_engine
+    
+    # GRUP İÇİN ÖZEL MANTIK (Linked Groups)
+    if call.message.chat.type in ['group', 'supergroup']:
+        # Sadece listeleme ile ilgili butonlara izin ver
+        # Örn: list_refresh, list_page, domain_detail vs.
+        ALLOWED_GROUP = ["main_menu", "refresh_list"] 
+        # Domain detay butonları usually "d_example.com" formatında olabilir veya listeden gelir
+        
+        # Eğer buton bir "listeleme" veya "detay" butonu ise ve grup bağlıysa izin ver
+        # Şimdilik basitçe: Gruplarda expiry kontrolünü atla, ama sadece belirli butonlara izin ver
+        
+        # Grubun bağlı domaini var mı?
+        linked_domains = db.get_linked_domains_for_chat(cid)
+        if not linked_domains:
+             bot.answer_callback_query(call.id, "⚠️ Bu gruba bağlı domain yok.", show_alert=True)
+             return
+
+        # Sadece listeleme ve refresh serbest, diğerleri (ekle, sil, ödeme) yasak
+        if data in ["add_new", "buy_menu", "account", "support"]:
+             bot.answer_callback_query(call.id, "⚠️ Bu işlem sadece özel mesajda yapılabilir.", show_alert=True)
+             return
+             
+        # Expiry kontrolünü atla (Sonsuz izin, çünkü sahibi zaten ödüyor)
+        is_expired = False
+        
+    else:
+        # ŞAHSİ KULLANIM İÇİN NORMAL KONTROL
+        ALLOWED_FOR_EXPIRED = ["satin_al", "sss", "back_to_expiry"]
+        access_status = db.check_user_access(cid)
+        is_expired = not access_status["access"]
+    
+    if is_expired:
     
     if is_expired:
         # buy_ ile başlayanlar da izinli
