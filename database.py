@@ -26,10 +26,14 @@ class Database:
                          start_date TEXT,
                          expiry_date TEXT,
                          notified_expiry INTEGER DEFAULT 0,
-                         ultra_enabled INTEGER DEFAULT 1
+                         ultra_enabled INTEGER DEFAULT 1,
+                         username TEXT
                          )''')
             
             try: c.execute("ALTER TABLE users ADD COLUMN ultra_enabled INTEGER DEFAULT 1")
+            except: pass
+            
+            try: c.execute("ALTER TABLE users ADD COLUMN username TEXT")
             except: pass
 
             c.execute('''CREATE TABLE IF NOT EXISTS domains (
@@ -80,15 +84,15 @@ class Database:
             conn.commit()
             conn.close()
 
-    def register_user(self, user_id: str):
+    def register_user(self, user_id: str, username: str = None):
         with self._lock:
             conn = self._get_conn(); c = conn.cursor()
             if c.execute("SELECT * FROM users WHERE user_id=?", (str(user_id),)).fetchone(): conn.close(); return False
             now = datetime.datetime.now(); expiry = now + datetime.timedelta(days=2)
-            c.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)", (str(user_id), "trial", str(now), str(expiry), 0, 1))
+            c.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)", (str(user_id), "trial", str(now), str(expiry), 0, 1, username))
             conn.commit(); conn.close(); return True
 
-    def register_user_scheduled(self, user_id: str, start_monday=False):
+    def register_user_scheduled(self, user_id: str, start_monday=False, username: str = None):
         with self._lock:
             conn = self._get_conn(); c = conn.cursor()
             if c.execute("SELECT * FROM users WHERE user_id=?", (str(user_id),)).fetchone(): conn.close(); return False, None, None
@@ -99,7 +103,7 @@ class Database:
                 start = (now + datetime.timedelta(days=days_until)).replace(hour=8, minute=0, second=0, microsecond=0)
             else: start = now
             expiry = start + datetime.timedelta(hours=48)
-            c.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?)", (str(user_id), "trial", str(start), str(expiry), 0, 1))
+            c.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?)", (str(user_id), "trial", str(start), str(expiry), 0, 1, username))
             conn.commit(); conn.close(); return True, start, expiry
 
     def check_user_access(self, user_id: str) -> dict:
@@ -114,7 +118,7 @@ class Database:
 
     def get_user_data(self, user_id):
         conn = self._get_conn(); c = conn.cursor(); c.execute("SELECT * FROM users WHERE user_id=?", (str(user_id),)); row = c.fetchone(); conn.close()
-        if row: return {"plan": row[1], "start_date": row[2], "expiry_date": row[3], "ultra_enabled": bool(row[5]) if len(row)>5 else True}
+        if row: return {"plan": row[1], "start_date": row[2], "expiry_date": row[3], "ultra_enabled": bool(row[5]) if len(row)>5 else True, "username": row[6] if len(row)>6 else None}
         return {}
 
     def toggle_user_ultra(self, user_id):
@@ -128,16 +132,17 @@ class Database:
                 return bool(new_val)
             conn.close(); return False
 
-    def set_premium(self, user_id: str, days: int):
+    def set_premium(self, user_id: str, days: int, username: str = None):
         with self._lock:
             conn = self._get_conn(); now = datetime.datetime.now(); expiry = now + datetime.timedelta(days=days)
-            conn.execute("INSERT OR REPLACE INTO users (user_id, plan, start_date, expiry_date, notified_expiry, ultra_enabled) VALUES (?, ?, ?, ?, ?, ?)", (str(user_id), "premium", str(now), str(expiry), 0, 1))
+            # Mevcut username'i korumak veya güncellemek için mantık gerekebilir ama basitçe güncelleyelim
+            conn.execute("INSERT OR REPLACE INTO users (user_id, plan, start_date, expiry_date, notified_expiry, ultra_enabled, username) VALUES (?, ?, ?, ?, ?, ?, ?)", (str(user_id), "premium", str(now), str(expiry), 0, 1, username))
             conn.commit(); conn.close(); return str(expiry)
 
-    def set_ultra(self, user_id: str, days: int):
+    def set_ultra(self, user_id: str, days: int, username: str = None):
         with self._lock:
             conn = self._get_conn(); now = datetime.datetime.now(); expiry = now + datetime.timedelta(days=days)
-            conn.execute("INSERT OR REPLACE INTO users (user_id, plan, start_date, expiry_date, notified_expiry, ultra_enabled) VALUES (?, ?, ?, ?, ?, ?)", (str(user_id), "ultra", str(now), str(expiry), 0, 1))
+            conn.execute("INSERT OR REPLACE INTO users (user_id, plan, start_date, expiry_date, notified_expiry, ultra_enabled, username) VALUES (?, ?, ?, ?, ?, ?, ?)", (str(user_id), "ultra", str(now), str(expiry), 0, 1, username))
             conn.commit(); conn.close(); return str(expiry)
 
     def get_expiring_users(self, hours=24):
@@ -260,11 +265,17 @@ class Database:
             else:
                 new_expiry = now + datetime.timedelta(days=days)
             
-            # Kullanıcı planını güncelle
+            # Kullanıcı planını güncelle - Username korunmalı
+            current_username = None
+            if user_row and len(user_row) > 1: # user_row sorgusu sadece expiry_date çekiyor, tekrar çekelim
+                 tmp_c = conn.execute("SELECT username FROM users WHERE user_id=?", (user_id,))
+                 tmp_r = tmp_c.fetchone()
+                 if tmp_r: current_username = tmp_r[0]
+
             c.execute("""
-                INSERT OR REPLACE INTO users (user_id, plan, start_date, expiry_date, notified_expiry, ultra_enabled)
-                VALUES (?, ?, ?, ?, 0, 1)
-            """, (user_id, plan_type, str(now), str(new_expiry)))
+                INSERT OR REPLACE INTO users (user_id, plan, start_date, expiry_date, notified_expiry, ultra_enabled, username)
+                VALUES (?, ?, ?, ?, 0, 1, ?)
+            """, (user_id, plan_type, str(now), str(new_expiry), current_username))
             
             # Ödeme durumunu güncelle
             c.execute("UPDATE payments SET status = 'paid', paid_at = ? WHERE invoice_id = ?", (str(now), invoice_id))
@@ -541,21 +552,22 @@ class Database:
 
         # --- 2. KULLANICI DETAYLARI ---
         output.append("\n👤 KULLANICI DETAYLARI VE PAKETLERİ")
-        output.append(f"{'USER ID':<15} | {'PLAN':<10} | {'DOM':<3} | {'BAŞLANGIÇ':<16} | {'BİTİŞ':<16}")
-        output.append("-" * 65)
+        output.append(f"{'USER ID':<15} | {'USERNAME':<15} | {'PLAN':<10} | {'DOM':<3} | {'BAŞLANGIÇ':<16} | {'BİTİŞ':<16}")
+        output.append("-" * 85)
         
-        users = c.execute("SELECT user_id, plan, start_date, expiry_date FROM users ORDER BY expiry_date DESC").fetchall()
+        users = c.execute("SELECT user_id, plan, start_date, expiry_date, username FROM users ORDER BY expiry_date DESC").fetchall()
         
         for u in users:
-            uid, plan, start, expiry = u
-            # Kullanıcının kaç domaini var?
+            uid, plan, start, expiry, uname = u
+            uname_str = f"@{uname}" if uname else "-"
+            # Kullanıcıların kaç domaini var?
             d_count = c.execute("SELECT COUNT(*) FROM domains WHERE user_id=?", (uid,)).fetchone()[0]
             
             # Tarih formatlama (Sadece YYYY-MM-DD HH:MM kısmını al)
             s_date = start[:16] if start else "-"
             e_date = expiry[:16] if expiry else "-"
             
-            output.append(f"{uid:<15} | {plan:<10} | {d_count:<3} | {s_date:<16} | {e_date:<16}")
+            output.append(f"{uid:<15} | {uname_str:<15} | {plan:<10} | {d_count:<3} | {s_date:<16} | {e_date:<16}")
         
         output.append("=" * 65)
 
@@ -772,3 +784,22 @@ class Database:
             "total_bonus_days": total_days
         }
 
+    
+    def update_username(self, user_id: str, username: str):
+        """Kullanıcının username bilgisini günceller"""
+        if not username: return
+        with self._lock:
+            conn = self._get_conn()
+            try:
+                # Sadece mevcut kullanıcı varsa güncelle
+                conn.execute("UPDATE users SET username=? WHERE user_id=?", (username, str(user_id)))
+                conn.commit()
+            except: pass
+            finally: conn.close()
+            
+    def get_all_users_with_details(self):
+        """Kullanıcı listesi komutu için detaylı veri"""
+        conn = self._get_conn()
+        rows = conn.execute("SELECT user_id, username, plan, expiry_date FROM users ORDER BY expiry_date DESC").fetchall()
+        conn.close()
+        return [{"user_id": r[0], "username": r[1], "plan": r[2], "expiry_date": r[3]} for r in rows]

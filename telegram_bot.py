@@ -54,6 +54,15 @@ def check_access(func):
             return
         return func(message, *args, **kwargs)
     return wrapper
+    
+def _update_username_middleware(message):
+    """Her etkileşimde username günceller"""
+    try:
+        if hasattr(message, 'from_user') and message.from_user:
+             uid = message.from_user.id
+             uname = message.from_user.username
+             if uname: db.update_username(uid, uname)
+    except: pass
 
 user_adding_domain = set()
 
@@ -140,10 +149,17 @@ def _show_webhook_list(chat_id, message_id=None):
 
 # --- KULLANICI KOMUTLARI ---
 
+    # Middleware çalıştır
+    _update_username_middleware(message)
+    
 @bot.message_handler(commands=['start'])
 def cmd_start(message):
     cid = message.chat.id
     name = message.from_user.first_name
+    username = message.from_user.username
+    
+    # Username kaydet
+    if username: db.update_username(cid, username)
     
     # Referans kontrolü (/start ref_123456)
     referrer_id = None
@@ -195,7 +211,7 @@ def cmd_start(message):
             # Hafta içi direkt başlat
             # Referans ile geldiyse 72 saat, normal ise 48 saat
             trial_hours = 72 if referrer_id else 48
-            succ, st, ex = db.register_user_scheduled(cid, False)
+            succ, st, ex = db.register_user_scheduled(cid, False, username=username)
             
             # Referans bonusu için süre uzat
             if succ and referrer_id:
@@ -547,6 +563,39 @@ def cmd_toggle_ultra_ss_global(message):
         status_text = "✅ **AKTİF**" if new_val else "❌ **PASİF**"
         bot.reply_to(message, f"📸 **Global Ultra Foto Modu:** {status_text}\n(Tüm kullanıcılar için)", parse_mode="Markdown")
     except Exception as e: bot.reply_to(message, f"❌ Hata: {e}")
+
+@bot.message_handler(commands=['kullanicilar', 'users'])
+def cmd_list_users(message):
+    if str(message.chat.id) != str(ADMIN_ID): return
+    try:
+        users = db.get_all_users_with_details()
+        if not users:
+            bot.reply_to(message, "⚠️ Kayıtlı kullanıcı yok.")
+            return
+
+        text = "👥 **Kullanıcı Listesi**\n"
+        text += "Format: `ID | @Username | Paket | Bitiş`\n"
+        text += "━━━━━━━━━━━━━━━━━━━━\n"
+        
+        # Uzun liste kontrolü (Max 4096 karakter)
+        chunk = ""
+        for u in users:
+            uname = f"@{u['username']}" if u['username'] else "-"
+            expiry = u['expiry_date'][:10] if u['expiry_date'] else "-"
+            line = f"`{u['user_id']}` | {uname} | {u['plan']} | {expiry}\n"
+            
+            if len(chunk) + len(line) > 3800:
+                bot.send_message(message.chat.id, text + chunk, parse_mode="Markdown")
+                chunk = ""
+                text = "" # Sonraki mesajlar başlıksız olsun
+            
+            chunk += line
+            
+        if chunk:
+            bot.send_message(message.chat.id, text + chunk, parse_mode="Markdown")
+            
+    except Exception as e:
+        bot.reply_to(message, f"❌ Hata: {e}")
 
 # --- WEBHOOK CALLBACKS (RECURSION FIXED) ---
 @bot.callback_query_handler(func=lambda call: call.data.startswith("wh_"))
