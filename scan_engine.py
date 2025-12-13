@@ -260,6 +260,15 @@ def process_scan_result_and_print(domain, sonuc, prefix, index, total):
 
     target_users = db.get_users_for_domain(domain)
     
+    # Linked Groups (Anahtarla bağlanmış grupları ekle)
+    linked_groups = db.get_linked_chats_for_domain(domain)
+    if linked_groups:
+        # target_users listesine ekle (set yaparak duplicate önleyelim)
+        current_set = set(target_users)
+        for gid in linked_groups:
+            current_set.add(gid)
+        target_users = list(current_set)
+    
     # Webhook var mı kontrol et (Gereksiz upload yapmamak için)
     # Sadece ENGELLİ durumunda ve webhook varsa upload gereklidir.
     has_webhooks = False

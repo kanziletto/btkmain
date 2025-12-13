@@ -42,6 +42,13 @@ class Database:
                          domain TEXT,
                          UNIQUE(user_id, domain)
                          )''')
+
+            c.execute('''CREATE TABLE IF NOT EXISTS notification_links (
+                          key TEXT PRIMARY KEY,
+                          domain TEXT,
+                          owner_id TEXT,
+                          linked_chat_id TEXT
+                          )''')
             
             c.execute('''CREATE TABLE IF NOT EXISTS status (domain TEXT PRIMARY KEY, status TEXT, last_check TEXT)''')
             c.execute('''CREATE TABLE IF NOT EXISTS stats (date TEXT PRIMARY KEY, total INTEGER DEFAULT 0, clean INTEGER DEFAULT 0, banned INTEGER DEFAULT 0, error INTEGER DEFAULT 0)''')
@@ -569,6 +576,9 @@ class Database:
             
             output.append(f"{uid:<15} | {uname_str:<15} | {plan:<10} | {d_count:<3} | {s_date:<16} | {e_date:<16}")
         
+            
+            output.append(f"{uid:<15} | {uname_str:<15} | {plan:<10} | {d_count:<3} | {s_date:<16} | {e_date:<16}")
+        
         output.append("=" * 65)
 
         # --- 3. WEBHOOK DETAYLARI ---
@@ -803,3 +813,43 @@ class Database:
         rows = conn.execute("SELECT user_id, username, plan, expiry_date FROM users ORDER BY expiry_date DESC").fetchall()
         conn.close()
         return [{"user_id": r[0], "username": r[1], "plan": r[2], "expiry_date": r[3]} for r in rows]
+
+    def create_notification_key(self, user_id: str, domain: str) -> str:
+        """Domain için yeni bir bildirim anahtarı oluşturur"""
+        import uuid
+        key = f"KEY-{str(uuid.uuid4())[:8].upper()}"
+        with self._lock:
+            conn = self._get_conn()
+            # Varsa eskisini sil (veya birden fazla key izin verilebilir ama şimdilik tek key basit tutalım)
+            conn.execute("DELETE FROM notification_links WHERE domain=? AND owner_id=? AND linked_chat_id IS NULL", (domain, str(user_id)))
+            conn.execute("INSERT INTO notification_links (key, domain, owner_id) VALUES (?, ?, ?)", (key, domain, str(user_id)))
+            conn.commit(); conn.close()
+        return key
+
+    def link_chat_to_key(self, key: str, chat_id: str) -> dict:
+        """Anahtarı kullanarak grubu domaine bağlar"""
+        with self._lock:
+            conn = self._get_conn()
+            c = conn.cursor()
+            row = c.execute("SELECT domain, owner_id, linked_chat_id FROM notification_links WHERE key=?", (key,)).fetchone()
+            
+            if not row:
+                conn.close()
+                return {"success": False, "msg": "❌ Geçersiz veya silinmiş anahtar."}
+            
+            domain, owner, current_link = row
+            
+            # Anahtar zaten kullanılmış mı? (İstenirse tek kullanımlık yapılabilir, şimdilik kalıcı)
+            # Eğer anahtar tek bir grubu bağlıyorsa UPDATE yapalım.
+            
+            c.execute("UPDATE notification_links SET linked_chat_id=? WHERE key=?", (str(chat_id), key))
+            conn.commit(); conn.close()
+            return {"success": True, "domain": domain}
+
+    def get_linked_chats_for_domain(self, domain: str) -> list:
+        """Domain'e bağlı ek chat ID'leri getirir"""
+        conn = self._get_conn()
+        rows = conn.execute("SELECT linked_chat_id FROM notification_links WHERE domain=? AND linked_chat_id IS NOT NULL", (domain,)).fetchall()
+        conn.close()
+        # Unique list yap
+        return list(set([r[0] for r in rows]))

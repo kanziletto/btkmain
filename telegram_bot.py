@@ -252,6 +252,45 @@ def cmd_add(message):
 def cmd_account(message):
     _show_account_menu(message.chat.id)
 
+@bot.message_handler(commands=['anahtar'])
+@check_access
+def cmd_key(message):
+    args = message.text.split()
+    if len(args) < 2:
+        bot.reply_to(message, "⚠️ Kullanım: `/anahtar [domain]`\nÖrnek: `/anahtar ornek.com`")
+        return
+    
+    domain = args[1].lower().replace('http://', '').replace('https://', '').replace('www.', '').strip()
+    cid = message.chat.id
+    
+    # Domain bu kullanıcıya mı ait?
+    owned_domains = db.get_user_domains(cid)
+    if domain not in owned_domains:
+        bot.reply_to(message, "❌ Bu domain listenizde bulunmuyor.")
+        return
+        
+    # Anahtar oluştur
+    key = db.create_notification_key(cid, domain)
+    bot.reply_to(message, f"🔑 **Bildirim Anahtarı Oluşturuldu!**\n\nDomain: `{domain}`\nAnahtar: `{key}`\n\nBu anahtarı grubunuza eklemek için grubunuzda şunu yazın:\n`/bagla {key}`", parse_mode="Markdown")
+
+@bot.message_handler(commands=['bagla'])
+def cmd_link(message):
+    args = message.text.split()
+    if len(args) < 2:
+        bot.reply_to(message, "⚠️ Kullanım: `/bagla [ANAHTAR]`\nÖrnek: `/bagla KEY-1234ABCD`")
+        return
+    
+    key = args[1].strip()
+    chat_id = message.chat.id
+    
+    # Gruba bağla
+    result = db.link_chat_to_key(key, chat_id)
+    
+    if result["success"]:
+        bot.reply_to(message, f"✅ **Başarılı!**\nBu sohbet artık **{result['domain']}** domaini için bildirim alacak.", parse_mode="Markdown")
+    else:
+        bot.reply_to(message, result["msg"])
+
 @bot.message_handler(commands=['listem'])
 @check_access
 def cmd_list(message):
